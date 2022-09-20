@@ -37,6 +37,10 @@ body {
   margin: 0px;
   padding: 0px;
 }
+#ganttChart {
+  height: 600px;
+  width: 1200px;
+}
 
 /*
 .level1 td:first-child {
