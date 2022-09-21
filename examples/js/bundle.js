@@ -1472,6 +1472,8 @@ class XERParser {
     getWBS() {
         const toReturn = [];
         let wbss = this.byType["PROJWBS"];
+        console.log(wbss[0]);
+        wbss[0].parent_wbs_id = null;
         for (const wbs of wbss) {
             let activities = this.activities.filter((activity) => {
                 return activity.parent === parseInt(wbs.wbs_id);
@@ -1494,17 +1496,42 @@ class XERParser {
                     name: wbs.wbs_name,
                     start: minStart,
                     end: maxEnd,
+                    parent: wbs.parent_wbs_id ? parseInt(wbs.parent_wbs_id) : null,
+                };
+                toReturn.push(wbsObj);
+            }
+            else {
+                let wbsObj = {
+                    id: parseInt(wbs.wbs_id),
+                    name: wbs.wbs_name,
+                    start: null,
+                    end: null,
+                    parent: wbs.parent_wbs_id ? parseInt(wbs.parent_wbs_id) : null,
                 };
                 toReturn.push(wbsObj);
             }
         }
-        for (const wbs of wbss) {
-            if (wbs.start === undefined || wbs.end === undefined) {
-                wbs.start = new Date();
-                wbs.end = new Date();
-            }
-        }
-        return toReturn;
+        const res = toReturn.map((d) => {
+            const getMin = (obj, prop) => {
+                const children = toReturn.filter(({ parent }) => parent === obj.id);
+                if (children.length === 0)
+                    return obj[prop];
+                return children.reduce((acc, c) => new Date(Math.min(acc, getMin(c, prop))), new Date(2100, 1, 1));
+            };
+            const getMax = (obj, prop) => {
+                const children = toReturn.filter(({ parent }) => parent === obj.id);
+                if (children.length === 0)
+                    return obj[prop];
+                return children.reduce((acc, c) => new Date(Math.max(acc, getMax(c, prop))), new Date(1970, 1, 1));
+            };
+            return {
+                ...d,
+                start: getMin(d, "start"),
+                end: getMax(d, "end"),
+            };
+        });
+        console.log(res);
+        return res;
     }
 }
 
@@ -1520,6 +1547,7 @@ fileInput.addEventListener("change", (event) => {
     const wbss = parser.getWBS();
     const scheduleData = wbss.concat(activities);
     let container = document.getElementById("ganttChart");
+    container.innerHTML = "";
     let options = {
       container: container,
       dataDate: new Date(2022, 0, 15),
