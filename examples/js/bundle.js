@@ -1547,6 +1547,7 @@ fileInput.addEventListener("change", (event) => {
     const wbss = parser.getWBS();
     const scheduleData = wbss.concat(activities);
     let container = document.getElementById("ganttChart");
+    container.innerHTML = "";
     let options = {
       container: container,
       dataDate: new Date(2022, 0, 15),
