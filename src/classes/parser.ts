@@ -49,7 +49,7 @@ export class XERParser {
       }
     };
 
-    reader.readAsText(file);
+    reader.readAsText(file, "windows-1256");
   }
 
   getActivities() {
