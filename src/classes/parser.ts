@@ -3,6 +3,7 @@ export class XERParser {
   fileReader: FileReader;
   byType: { [key: string]: any[] };
   byId: { [key: string]: string };
+  activities: { [key: string]: any | null }[] = [];
 
   constructor(file: Blob) {
     this.file = file;
@@ -52,6 +53,57 @@ export class XERParser {
   }
 
   getActivities() {
-    return this.byType["TASK"];
+    let tasks = this.byType["TASK"];
+    for (const activity of tasks) {
+      let obj = {
+        id: parseInt(activity.task_id),
+        name: activity.task_name,
+        start: new Date(activity.early_start_date),
+        end: new Date(activity.early_end_date),
+        parent: parseInt(activity.wbs_id),
+      };
+      this.activities.push(obj);
+    }
+    return this.activities;
+  }
+
+  getWBS() {
+    const toReturn = [];
+    let wbss = this.byType["PROJWBS"];
+    // console.log(wbss);
+    for (const wbs of wbss) {
+      let activities = this.activities.filter((activity) => {
+        return activity.parent === parseInt(wbs.wbs_id);
+      });
+      if (activities.length > 0) {
+        // console.log("WBS Activities", wbs, activities);
+        let minStart: Date;
+        let maxEnd: Date;
+        for (let act of activities) {
+          if (minStart === undefined || act.start < minStart) {
+            minStart = new Date(act.start);
+          } else if (maxEnd === undefined || act.end > maxEnd) {
+            maxEnd = new Date(act.end);
+          }
+        }
+        wbs.start = minStart;
+        wbs.end = maxEnd;
+        let wbsObj = {
+          id: parseInt(wbs.wbs_id),
+          name: wbs.wbs_name,
+          start: minStart,
+          end: maxEnd,
+        };
+        toReturn.push(wbsObj);
+      }
+    }
+
+    for (const wbs of wbss) {
+      if (wbs.start === undefined || wbs.end === undefined) {
+        wbs.start = new Date();
+        wbs.end = new Date();
+      }
+    }
+    return toReturn;
   }
 }

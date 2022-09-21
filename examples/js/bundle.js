@@ -1410,6 +1410,7 @@ tr:hover {
 
 class XERParser {
     constructor(file) {
+        this.activities = [];
         this.file = file;
         this.fileReader = new FileReader();
         this.byType = Object.create({});
@@ -1451,7 +1452,57 @@ class XERParser {
         reader.readAsText(file);
     }
     getActivities() {
-        return this.byType["TASK"];
+        let tasks = this.byType["TASK"];
+        for (const activity of tasks) {
+            let obj = {
+                id: parseInt(activity.task_id),
+                name: activity.task_name,
+                start: new Date(activity.early_start_date),
+                end: new Date(activity.early_end_date),
+                parent: parseInt(activity.wbs_id),
+            };
+            this.activities.push(obj);
+        }
+        return this.activities;
+    }
+    getWBS() {
+        const toReturn = [];
+        let wbss = this.byType["PROJWBS"];
+        // console.log(wbss);
+        for (const wbs of wbss) {
+            let activities = this.activities.filter((activity) => {
+                return activity.parent === parseInt(wbs.wbs_id);
+            });
+            if (activities.length > 0) {
+                // console.log("WBS Activities", wbs, activities);
+                let minStart;
+                let maxEnd;
+                for (let act of activities) {
+                    if (minStart === undefined || act.start < minStart) {
+                        minStart = new Date(act.start);
+                    }
+                    else if (maxEnd === undefined || act.end > maxEnd) {
+                        maxEnd = new Date(act.end);
+                    }
+                }
+                wbs.start = minStart;
+                wbs.end = maxEnd;
+                let wbsObj = {
+                    id: parseInt(wbs.wbs_id),
+                    name: wbs.wbs_name,
+                    start: minStart,
+                    end: maxEnd,
+                };
+                toReturn.push(wbsObj);
+            }
+        }
+        for (const wbs of wbss) {
+            if (wbs.start === undefined || wbs.end === undefined) {
+                wbs.start = new Date();
+                wbs.end = new Date();
+            }
+        }
+        return toReturn;
     }
 }
 
@@ -1461,26 +1512,18 @@ fileInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
   URL.createObjectURL(file);
   const parser = new XERParser(file);
-  const activities = [];
+  // const activities = [];
   setTimeout(() => {
-    for (let activity of parser.getActivities()) {
-      console.log(activity);
-      let obj = {
-        id: parseInt(activity.task_id),
-        name: activity.task_name,
-        start: new Date(activity.early_start_date),
-        end: new Date(activity.early_end_date),
-      };
-      activities.push(obj);
-    }
-
+    const activities = parser.getActivities();
+    const wbss = parser.getWBS();
+    const scheduleData = wbss.concat(activities);
     let container = document.getElementById("ganttChart");
     let options = {
       container: container,
       dataDate: new Date(2022, 0, 15),
       gridScale: 5,
       gridColor: "black",
-      data: activities,
+      data: scheduleData,
       titleOptions: "Music",
       rowHeight: 30,
       timeLineColumnWidth: 20,
@@ -1497,7 +1540,7 @@ fileInput.addEventListener("change", (event) => {
 
     let gantt = new GanttChart(options);
     gantt.draw();
-  }, 2000);
+  }, 1000);
 
   // console.log(parser.getActivities());
 
