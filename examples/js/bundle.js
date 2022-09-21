@@ -1472,17 +1472,14 @@ class XERParser {
     getWBS() {
         const toReturn = [];
         let wbss = this.byType["PROJWBS"];
-        // console.log(wbss);
         for (const wbs of wbss) {
             let activities = this.activities.filter((activity) => {
                 return activity.parent === parseInt(wbs.wbs_id);
             });
             if (activities.length > 0) {
-                // console.log("WBS Activities", wbs, activities);
                 let minStart;
                 let maxEnd;
                 for (let act of activities) {
-                    console.log("WBS", wbs, "Activity", act);
                     if (minStart === undefined || act.start < minStart) {
                         minStart = new Date(act.start);
                     }
