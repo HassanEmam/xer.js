@@ -58,8 +58,12 @@ export class XERParser {
       let obj = {
         id: parseInt(activity.task_id),
         name: activity.task_name,
-        start: new Date(activity.early_start_date),
-        end: new Date(activity.early_end_date),
+        start: activity.early_start_date
+          ? new Date(activity.early_start_date)
+          : new Date(activity.act_start_date),
+        end: activity.early_end_date
+          ? new Date(activity.early_end_date)
+          : new Date(activity.act_end_date),
         parent: parseInt(activity.wbs_id),
       };
       this.activities.push(obj);
@@ -80,9 +84,11 @@ export class XERParser {
         let minStart: Date;
         let maxEnd: Date;
         for (let act of activities) {
+          console.log("WBS", wbs, "Activity", act);
           if (minStart === undefined || act.start < minStart) {
             minStart = new Date(act.start);
-          } else if (maxEnd === undefined || act.end > maxEnd) {
+          }
+          if (maxEnd === undefined || act.end > maxEnd) {
             maxEnd = new Date(act.end);
           }
         }
