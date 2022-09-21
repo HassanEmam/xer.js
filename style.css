@@ -39,7 +39,7 @@ body {
 }
 #ganttChart {
   height: 600px;
-  width: 1200px;
+  width: 100%;
 }
 
 /*

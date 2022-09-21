@@ -609,6 +609,7 @@ class Table {
         this.rowCounter = 0;
         this.columns = columns;
         this.tableDOM = document.createElement("table");
+        this.tableDOM.style.whiteSpace = "nowrap";
         // this.tableDOM.style.textAlign = "center";
         this.tableDOM.style.position = "relative";
         this.tableDOM.style.borderCollapse = "collapse";
@@ -689,6 +690,9 @@ class Table {
         }
         this.createLeaf(data, update);
         if (data.children.length > 0) {
+            data.children.sort((a, b) => {
+                return a.children.length - b.children.length;
+            });
             data.children.forEach((child) => {
                 this.createBranch(child, update);
             });
@@ -700,6 +704,11 @@ class Table {
     }
     createBranch(data, update = false) {
         this.createLeaf(data, update);
+        data.children.sort((a, b) => {
+            console.log(b.children.length, a.children.length, b.children.length - a.children.length);
+            return a.children.length - b.children.length;
+        });
+        console.log(data.children);
         if (data.expanded && data.expanded === true) {
             for (let row of data.children) {
                 if (row.children.length === 0) {
@@ -738,14 +747,14 @@ class Table {
                 col.style.padding = "0px";
                 col.style.border = "0px";
                 if (data[this.columns[colidx]] instanceof Date) {
-                    col.innerHTML = `<span>${data[this.columns[colidx]].toLocaleDateString("en-GB", {
+                    col.innerHTML = `${data[this.columns[colidx]].toLocaleDateString("en-GB", {
                         day: "numeric",
                         month: "2-digit",
                         year: "numeric",
-                    })}</span>`;
+                    })}`;
                 }
                 else {
-                    col.innerHTML = `<span>${data[this.columns[colidx]]}</span>`;
+                    col.innerHTML = `${data[this.columns[colidx]]}`;
                 }
                 if (data.children.length === 0 && data.hasChildren === true) {
                     let childs = this.gantt.options.data.filter((d) => d.parent === data.id);
@@ -791,6 +800,12 @@ class Table {
                         spacer.style.minWidth = "10px";
                         col.insertBefore(spacer, col.firstChild);
                     }
+                }
+                else {
+                    col.style.maxWidth = "0px";
+                    col.style.overflow = "hidden";
+                    col.style.textOverflow = "ellipsis";
+                    col.style.whiteSpace = "nowrap";
                 }
                 if (data.children.length === 0 && colidx > 0) {
                     col.addEventListener("dblclick", (e) => {
@@ -1005,7 +1020,7 @@ class TimeLine {
             drawLine(this.ctx, minScale === 0 ? 0 : minScale + this.options.timeLineColumnWidth, this.options.timeLineHeight / 4, minScale === 0 ? 0 : minScale + this.options.timeLineColumnWidth, this.canvas.height + this.options.timeLineHeight, "black");
             // month gridline in the timeline chart
             drawLine(this.ctx, maxScale, this.options.timeLineHeight / 4, maxScale, this.canvas.height + this.options.timeLineHeight, "black");
-            // draw month vertical line
+            // draw month vertical line in the main chart
             drawLine(this.gantt.ctx, maxScale, 0, maxScale, this.canvas.height + this.options.timeLineHeight, "black");
         }
         //topline above month names
