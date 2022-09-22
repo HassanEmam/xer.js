@@ -330,6 +330,8 @@ function minmax(data) {
             min = element.start;
         }
     });
+    min = new Date(min.getFullYear(), min.getMonth(), min.getDate());
+  max = new Date(max.getFullYear(), max.getMonth(), max.getDate());
     return [min, max];
 }
 /**
@@ -1537,6 +1539,7 @@ fileInput.addEventListener("change", (event) => {
     container.innerHTML = "";
     let options = {
       container: container,
+      showBaseline: false,
       dataDate: new Date(2022, 0, 15),
       gridScale: 5,
       gridColor: "black",

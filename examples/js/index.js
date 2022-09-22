@@ -17,6 +17,7 @@ fileInput.addEventListener("change", (event) => {
     container.innerHTML = "";
     let options = {
       container: container,
+      showBaseline: false,
       dataDate: new Date(2022, 0, 15),
       gridScale: 5,
       gridColor: "black",
