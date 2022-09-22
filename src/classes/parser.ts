@@ -102,17 +102,22 @@ export class XERParser {
         };
         toReturn.push(wbsObj);
       } else {
-        let wbsObj: any = {
-          id: parseInt(wbs.wbs_id),
-          name: wbs.wbs_name,
-          start: null,
-          end: null,
-          parent: wbs.parent_wbs_id ? parseInt(wbs.parent_wbs_id) : null,
-        };
-        toReturn.push(wbsObj);
+        const parenOf = this.byType["PROJWBS"].filter((wbs2) => {
+          return wbs2.parent_wbs_id === wbs.wbs_id;
+        });
+        if (parenOf.length > 0) {
+          let wbsObj: any = {
+            id: parseInt(wbs.wbs_id),
+            name: wbs.wbs_name,
+            start: null,
+            end: null,
+            parent: wbs.parent_wbs_id ? parseInt(wbs.parent_wbs_id) : null,
+          };
+          toReturn.push(wbsObj);
+        }
       }
     }
-    const res = toReturn.map((d) => {
+    let res = toReturn.map((d) => {
       const getMin = (obj: any, prop: string): any => {
         const children = toReturn.filter(({ parent }) => parent === obj.id);
         if (children.length === 0) return obj[prop];
@@ -135,7 +140,10 @@ export class XERParser {
         end: getMax(d, "end"),
       };
     });
-    console.log(res);
+    // res = res.filter((d) => {
+    //   return d.start !== new Date(1970, 1, 1) && d.end !== new Date(2100, 1, 1);
+    // });
+    console.log("RES", res);
 
     return res;
   }
