@@ -12,7 +12,7 @@ fileInput.addEventListener("change", (event) => {
     const activities = parser.getActivities();
     const wbss = parser.getWBS();
     const scheduleData = wbss.concat(activities);
-    console.log(scheduleData);
+    console.log("schedule Data", scheduleData);
     let container = document.getElementById("ganttChart");
     container.innerHTML = "";
     let options = {
