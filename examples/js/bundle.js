@@ -10,9 +10,13 @@ function scaleX(dateToSclae, minDate, maxDate, width) {
     const min = minDate.getTime();
     const max = maxDate.getTime();
     const overallDuration = max - min;
+    console.log("dateToSclae", dateToSclae);
+    if(dateToSclae && dateToSclae instanceof Date) {
     const date = dateToSclae.getTime();
     const scale = Math.ceil((date - min) * (width / overallDuration));
     return scale;
+    }
+    return 0
 }
 
 class Tasks {
@@ -1592,10 +1596,12 @@ fileInput.addEventListener("change", (event) => {
     const activities = parser.getActivities();
     const wbss = parser.getWBS();
     const scheduleData = wbss.concat(activities);
+    console.log(scheduleData);
     let container = document.getElementById("ganttChart");
     container.innerHTML = "";
     let options = {
       container: container,
+      showBaseline: false,
       dataDate: new Date(2022, 0, 15),
       gridScale: 5,
       gridColor: "black",
@@ -1616,7 +1622,7 @@ fileInput.addEventListener("change", (event) => {
 
     let gantt = new GanttChart(options);
     gantt.draw();
-  }, 1000);
+  }, 5000);
 
   // console.log(parser.getActivities());
 
