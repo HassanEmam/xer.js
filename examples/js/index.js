@@ -6,11 +6,20 @@ const fileInput = document.getElementById("file");
 fileInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
   const fileuRL = URL.createObjectURL(file);
+  const pareStart = Date.now();
   const parser = new XERParser(file);
+  const parseEnd = Date.now();
+  console.log("parse time: ", parseEnd - pareStart);
   // const activities = [];
-  setTimeout(() => {
+  setTimeout(async () => {
+    const getActStart = Date.now();
     const activities = parser.getActivities();
+    const getActEnd = Date.now();
+    console.log("get activities time: ", getActEnd - getActStart);
+    const getWbsStart = Date.now();
     const wbss = parser.getWBS();
+    const getWbsEnd = Date.now();
+    console.log("get wbss time: ", getWbsEnd - getWbsStart);
     const scheduleData = wbss.concat(activities);
     console.log("schedule Data", scheduleData);
     let container = document.getElementById("ganttChart");
@@ -35,11 +44,18 @@ fileInput.addEventListener("change", (event) => {
       barColorHover: "red",
       colors: ["#a55ca5", "#67b6c7", "#bccd7a", "#eb9743"],
     };
-
+    const ganttStart = Date.now();
     let gantt = new GanttChart(options);
-    console.log("MINMAX", gantt.minDate, gantt.maxDate);
     gantt.draw();
-  }, 5000);
+    const ganttEnd = Date.now();
+    console.log("gantt time: ", ganttEnd - ganttStart);
+
+    console.log("MINMAX", gantt.minDate, gantt.maxDate);
+    gantt.on("taskClicked", (task) => {
+      console.log("Event Data:", task);
+      // alert("Clicked " + task.id + " " + task.name);
+    });
+  }, 100);
 
   // console.log(parser.getActivities());
 
