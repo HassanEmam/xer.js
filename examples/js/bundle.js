@@ -10,10 +10,12 @@ function scaleX(dateToSclae, minDate, maxDate, width) {
     const min = minDate.getTime();
     const max = maxDate.getTime();
     const overallDuration = max - min;
-    // console.log(dateToSclae);
-    const date = dateToSclae.getTime();
-    const scale = Math.ceil((date - min) * (width / overallDuration));
-    return scale;
+    if (dateToSclae && dateToSclae instanceof Date) {
+        const date = dateToSclae.getTime();
+        const scale = Math.ceil((date - min) * (width / overallDuration));
+        return scale;
+    }
+    return 0;
 }
 
 class Tasks {
@@ -309,20 +311,21 @@ function drawBar(ctx, upperLeftCornerX, upperLeftCornerY, width, height, color, 
  * @returns an array containing the min and max date
  */
 function minmax(data) {
-    let max = new Date(0);
-    let min = data[0].start;
-    data.forEach((element) => {
-        if (element.end && element.end > max) {
-            max = element.end;
-        }
-        if (element.start && element.start < min && element.start > new Date(0)) {
-            min = element.start;
-        }
-    });
-    min = new Date(min.getFullYear(), min.getMonth(), min.getDate());
+  let max = new Date(0);
+  let min = data[0].start;
+  data.forEach((element) => {
+    if (element.end && element.end > max) {
+      max = element.end;
+    }
+    if (element.start && element.start < min && element.start > new Date(0)) {
+      min = element.start;
+    }
+  });
+  min = new Date(min.getFullYear(), min.getMonth(), min.getDate());
   max = new Date(max.getFullYear(), max.getMonth(), max.getDate());
-    return [min, max];
+  return [min, max];
 }
+
 /**
  * compares two dates and returns the difference in months
  * @param {Date} firstMonth the first date of the period to compare
@@ -385,8 +388,143 @@ const months = [
     "Dec",
 ];
 
-class Bar {
-    constructor(x, y, width, height, context, color, fontColor, name, options, gantt) {
+class EventEmitter {
+    constructor() {
+        this.callbacks = {};
+        this.callbacks = {};
+        this.callbacks.base = {};
+    }
+    on(_names, callback) {
+        // Errors
+        if (typeof _names === "undefined" || _names === "") {
+            console.warn("wrong names");
+            return false;
+        }
+        if (typeof callback === "undefined") {
+            console.warn("wrong callback");
+            return false;
+        }
+        // Resolve names
+        const names = this.resolveNames(_names);
+        // Each name
+        names.forEach((_name) => {
+            // Resolve name
+            const name = this.resolveName(_name);
+            // Create namespace if not exist
+            if (!(this.callbacks[name.namespace] instanceof Object))
+                this.callbacks[name.namespace] = {};
+            // Create callback if not exist
+            if (!(this.callbacks[name.namespace][name.value] instanceof Array))
+                this.callbacks[name.namespace][name.value] = [];
+            // Add callback
+            this.callbacks[name.namespace][name.value].push(callback);
+        });
+        return this;
+    }
+    off(_names) {
+        // Errors
+        if (typeof _names === "undefined" || _names === "") {
+            console.warn("wrong name");
+            return false;
+        }
+        // Resolve names
+        const names = this.resolveNames(_names);
+        // Each name
+        names.forEach((_name) => {
+            // Resolve name
+            const name = this.resolveName(_name);
+            // Remove namespace
+            if (name.namespace !== "base" && name.value === "") {
+                delete this.callbacks[name.namespace];
+            }
+            // Remove specific callback in namespace
+            else {
+                // Default
+                if (name.namespace === "base") {
+                    // Try to remove from each namespace
+                    for (const namespace in this.callbacks) {
+                        if (this.callbacks[namespace] instanceof Object &&
+                            this.callbacks[namespace][name.value] instanceof Array) {
+                            delete this.callbacks[namespace][name.value];
+                            // Remove namespace if empty
+                            if (Object.keys(this.callbacks[namespace]).length === 0)
+                                delete this.callbacks[namespace];
+                        }
+                    }
+                }
+                // Specified namespace
+                else if (this.callbacks[name.namespace] instanceof Object &&
+                    this.callbacks[name.namespace][name.value] instanceof Array) {
+                    delete this.callbacks[name.namespace][name.value];
+                    // Remove namespace if empty
+                    if (Object.keys(this.callbacks[name.namespace]).length === 0)
+                        delete this.callbacks[name.namespace];
+                }
+            }
+        });
+        return this;
+    }
+    trigger(_name, _args) {
+        // Errors
+        if (typeof _name === "undefined" || _name === "") {
+            console.warn("wrong name");
+            return false;
+        }
+        let finalResult = null;
+        // Default args
+        const args = !(_args instanceof Array) ? [] : _args;
+        // Resolve names (should on have one event)
+        let nameArray = this.resolveNames(_name);
+        // Resolve name
+        let name = this.resolveName(nameArray[0]);
+        // Default namespace
+        if (name.namespace === "base") {
+            // Try to find callback in each namespace
+            for (const namespace in this.callbacks) {
+                if (this.callbacks[namespace] instanceof Object &&
+                    this.callbacks[namespace][name.value] instanceof Array) {
+                    this.callbacks[namespace][name.value].forEach((callback) => {
+                        callback.apply(this, args);
+                    });
+                }
+            }
+        }
+        // Specified namespace
+        else if (this.callbacks[name.namespace] instanceof Object) {
+            if (name.value === "") {
+                console.warn("wrong name");
+                return this;
+            }
+            this.callbacks[name.namespace][name.value].forEach((callback) => {
+                callback.apply(this, args);
+            });
+        }
+        return finalResult;
+    }
+    resolveNames(_names) {
+        let names = _names;
+        names = names.replace(/[^a-zA-Z0-9 ,/.]/g, "");
+        names = names.replace(/[,/]+/g, " ");
+        names = names.split(" ");
+        return names;
+    }
+    resolveName(name) {
+        const newName = {};
+        const parts = name.split(".");
+        newName.original = name;
+        newName.value = parts[0];
+        newName.namespace = "base"; // Base namespace
+        // Specified namespace
+        if (parts.length > 1 && parts[1] !== "") {
+            newName.namespace = parts[1];
+        }
+        return newName;
+    }
+}
+
+class Bar extends EventEmitter {
+    constructor(x, y, width, height, context, color, fontColor, name, options, gantt, taskData) {
+        super();
         this.width = width;
         this.height = height;
         this.x = x;
@@ -399,8 +537,9 @@ class Bar {
         this.color = this.options.barColor;
         this.hoverColor = this.options.barColorHover;
         this.gantt = gantt;
+        this.taskData = taskData;
     }
-    async draw(color, fontColor, name) {
+    draw(color, fontColor, name) {
         const sepLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
         sepLine.setAttribute("x1", "0");
         sepLine.setAttribute("x2", this.gantt.svg.clientWidth.toString());
@@ -428,12 +567,6 @@ class Bar {
                 : (this.fontColor = "white");
         name ? (this.name = name) : this.name ? this.name : (this.name = "Task");
         if (this.name) {
-            // this.context.globalCompositeOperation = "source-over";
-            // this.context.textAlign = "center";
-            // this.context.textBaseline = "middle";
-            // let fontSize = Math.min(this.width / 1.5, this.height / 1.5);
-            // this.context.font = `${fontSize}px Arial`;
-            // this.context.fillStyle = this.color;
             this.bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
             this.bar.setAttribute("x", this.x.toString());
             this.bar.setAttribute("y", this.y.toString());
@@ -441,35 +574,23 @@ class Bar {
             this.bar.setAttribute("height", this.height.toString());
             this.bar.setAttribute("fill", this.color);
             this.gantt.svg.appendChild(this.bar);
-            // this.context.fillRect(this.x, this.y, this.width, this.height);
-            // this.context.fillStyle = this.fontColor;
-            // this.context.fillStyle = "black";
-            // this.context.fillText(
-            //   this.name,
-            //   this.x + this.width / 2,
-            //   this.y + this.height / 2
-            // );
+            this.bar.addEventListener("mouseover", () => {
+                this.bar.setAttribute("fill", "red");
+            });
+            this.bar.addEventListener("mouseout", () => {
+                this.bar.setAttribute("fill", this.color);
+            });
+            this.bar.addEventListener("click", () => {
+                console.log("event triggered");
+                this.trigger("taskClicked", [this.taskData]);
+            });
+            this.gantt.bars.push(this);
         }
     }
     update(x, y) {
         this.draw();
         this.x = x;
         this.y = y;
-    }
-    collision(x, y) {
-        if (x >= this.x &&
-            x <= this.x + this.width &&
-            y >= this.y &&
-            y <= this.y + this.height) {
-            this.color = this.options.barColorHover;
-            this.draw();
-            return true;
-        }
-        else {
-            this.color = this.options.barColor;
-            this.draw();
-            return false;
-        }
     }
 }
 
@@ -507,18 +628,18 @@ class TableRow {
             this.options.timeLineHeight = 120;
         }
         if (this.options.showBaseline && this.options.showBaseline === true) {
-            let bar = new Bar(xStart, yOffset, barWidth, this.options.rowHeight * 0.4, this.gantt.ctx, this.options.barColor, "white", taskData.name, this.options, this.gantt);
+            let bar = new Bar(xStart, yOffset, barWidth, this.options.rowHeight * 0.4, this.gantt.ctx, this.options.barColor, "white", taskData.name, this.options, this.gantt, taskData);
             this.gantt.tasks.push(bar);
             bar.draw();
             let blYOffset = this.options.rowHeight * this.rowCounter + this.options.rowHeight * 0.6;
             let blStart = scaleX(taskData.baselineStart, this.gantt.minDate, this.gantt.maxDate, canvasActualWidth);
             let blEnd = scaleX(addDays(taskData.baselineEnd, 1), this.gantt.minDate, this.gantt.maxDate, canvasActualWidth);
             let blWidth = blEnd - blStart;
-            let blBar = new Bar(blStart, blYOffset, blWidth, this.options.rowHeight * 0.2, this.gantt.ctx, "yellow", "white", taskData.name, this.options, this.gantt);
+            let blBar = new Bar(blStart, blYOffset, blWidth, this.options.rowHeight * 0.2, this.gantt.ctx, "yellow", "white", taskData.name, this.options, this.gantt, taskData);
             blBar.draw("yellow");
         }
         else {
-            let bar = new Bar(xStart >= 0 ? xStart : 0, yOffset, barWidth, this.options.rowHeight * 0.6, this.gantt.ctx, this.options.barColor, "white", taskData.name, this.options, this.gantt);
+            let bar = new Bar(xStart >= 0 ? xStart : 0, yOffset, barWidth, this.options.rowHeight * 0.6, this.gantt.ctx, this.options.barColor, "white", taskData.name, this.options, this.gantt, taskData);
             this.gantt.tasks.push(bar);
             bar.draw();
         }
@@ -564,8 +685,9 @@ class TableRow {
     update() { }
 }
 
-class Table {
+class Table extends EventEmitter {
     constructor(context, color, hoverColor, fontColor, columns, options, gantt) {
+        super();
         this.nextUntil = function (elem, elements, filter) {
             var siblings = [];
             elem = elem.nextElementSibling;
@@ -656,8 +778,6 @@ class Table {
         }
     }
     drawRow(data, update = false) {
-        // this.tableBody.innerHTML = "";
-        // this.rowCounter = 0;
         if (data.children.length > 0) {
             if (data.expanded && data.expanded === true) {
                 data.expanded = true;
@@ -808,6 +928,9 @@ class Table {
                     this.addEvents(toggle);
                 });
             }
+            row.addEventListener("click", (e) => {
+                this.trigger("taskClicked", [data]);
+            });
             this.rowCounter++;
         }
     }
@@ -949,7 +1072,7 @@ class TimeLine {
         this.maxValue = this.gantt.maxValue;
         this.minValue = this.gantt.minValue;
     }
-    async draw() {
+    draw() {
         let noOfYears = this.maxDate.getFullYear() - this.minDate.getFullYear() + 1;
         monthDiff(this.minDate, this.maxDate);
         let noOfDays = dayDiff(this.minDate, this.maxDate) + 1;
@@ -1104,10 +1227,12 @@ class TimeLine {
     update(date) { }
 }
 
-class GanttChart {
+class GanttChart extends EventEmitter {
     constructor(options) {
+        super();
         this.splitterX = 0;
         this.splitterY = 0;
+        this.bars = [];
         this.splitterMouseDownHandler = (e) => {
             this.splitterX = e.clientX;
             this.splitterY = e.clientY;
@@ -1411,9 +1536,20 @@ tr:hover {
         this.drawTimeLine();
         this.drawDateLine();
         this.tasksData = new Tasks(this.options.data, this);
+        for (let bar of this.bars) {
+            bar.on("taskClicked", (event) => {
+                this.trigger("taskClicked", [event]);
+            });
+        }
+        this.table.on("taskClicked", (event) => {
+            this.trigger("taskClicked", [event]);
+        });
     }
     update() {
-        const contWidth = this.container.clientWidth - this.options.table.width - 50;
+        const contWidth = this.container.clientWidth -
+            this.tablediv.clientWidth -
+            this.splitter.clientWidth -
+            50;
         this.chartDiv.style.overflow = "auto";
         this.chartDiv.style.width = `${contWidth}px`;
         this.chartDiv.style.margin = "0px";
@@ -1428,8 +1564,12 @@ tr:hover {
         this.draw();
     }
     updateGantt() {
-        this.svg.innerHTML = '';
-        const contWidth = this.container.clientWidth - this.options.table.width - 50;
+        const current_scroll = this.tablediv.scrollTop;
+        this.svg.innerHTML = "";
+        const contWidth = this.container.clientWidth -
+            this.tablediv.clientWidth -
+            this.splitter.clientWidth -
+            50;
         this.chartDiv.style.overflow = "auto";
         this.chartDiv.style.width = `${contWidth}px`;
         this.chartDiv.style.margin = "0px";
@@ -1454,6 +1594,8 @@ tr:hover {
         this.drawDateLine();
         this.drawTimeLine();
         this.tasksData = new Tasks(this.options.data, this);
+        this.tablediv.scrollTop = current_scroll;
+        this.chartDiv.scrollTop = current_scroll;
     }
 }
 
@@ -1602,11 +1744,20 @@ const fileInput = document.getElementById("file");
 fileInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
   URL.createObjectURL(file);
+  const pareStart = Date.now();
   const parser = new XERParser(file);
+  const parseEnd = Date.now();
+  console.log("parse time: ", parseEnd - pareStart);
   // const activities = [];
-  setTimeout(() => {
+  setTimeout(async () => {
+    const getActStart = Date.now();
     const activities = parser.getActivities();
+    const getActEnd = Date.now();
+    console.log("get activities time: ", getActEnd - getActStart);
+    const getWbsStart = Date.now();
     const wbss = parser.getWBS();
+    const getWbsEnd = Date.now();
+    console.log("get wbss time: ", getWbsEnd - getWbsStart);
     const scheduleData = wbss.concat(activities);
     console.log(scheduleData);
     let container = document.getElementById("ganttChart");
@@ -1631,11 +1782,18 @@ fileInput.addEventListener("change", (event) => {
       barColorHover: "red",
       colors: ["#a55ca5", "#67b6c7", "#bccd7a", "#eb9743"],
     };
-
+    const ganttStart = Date.now();
     let gantt = new GanttChart(options);
-    console.log("MINMAX", gantt.minDate, gantt.maxDate);
     gantt.draw();
-  }, 5000);
+    const ganttEnd = Date.now();
+    console.log("gantt time: ", ganttEnd - ganttStart);
+
+    console.log("MINMAX", gantt.minDate, gantt.maxDate);
+    gantt.on("taskClicked", (task) => {
+      console.log("Event Data:", task);
+      // alert("Clicked " + task.id + " " + task.name);
+    });
+  }, 100);
 
   // console.log(parser.getActivities());
 
