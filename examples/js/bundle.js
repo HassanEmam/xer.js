@@ -1,3 +1,4 @@
+
 /**
  * Gets a date and returns a scaled value
  * @param  {Date} dateToSclae the date to convert into a scaled value
@@ -315,13 +316,15 @@ function minmax(data) {
     let max = new Date(0);
     let min = data[0].start;
     data.forEach((element) => {
-        if (element.end > max) {
+        if (element.end && element.end > max) {
             max = element.end;
         }
-        if (element.start < min) {
+        if (element.start && element.start < min && element.start > new Date(0)) {
             min = element.start;
         }
     });
+    min = new Date(min.getFullYear(), min.getMonth(), min.getDate());
+  max = new Date(max.getFullYear(), max.getMonth(), max.getDate());
     return [min, max];
 }
 /**
@@ -401,7 +404,7 @@ class Bar {
         this.hoverColor = this.options.barColorHover;
         this.gantt = gantt;
     }
-    draw(color, fontColor, name) {
+    async draw(color, fontColor, name) {
         const sepLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
         sepLine.setAttribute("x1", "0");
         sepLine.setAttribute("x2", this.gantt.svg.clientWidth.toString());
@@ -950,7 +953,7 @@ class TimeLine {
         this.maxValue = this.gantt.maxValue;
         this.minValue = this.gantt.minValue;
     }
-    draw() {
+    async draw() {
         let noOfYears = this.maxDate.getFullYear() - this.minDate.getFullYear() + 1;
         monthDiff(this.minDate, this.maxDate);
         let noOfDays = dayDiff(this.minDate, this.maxDate) + 1;
@@ -1345,7 +1348,6 @@ tr:hover {
         this.container.appendChild(this.tablediv);
         this.container.appendChild(this.splitter);
         this.container.appendChild(this.chartDiv);
-        console.log("Data Length",this.options.data.length, (this.options.rowHeight * this.options.data.length).toString());
         this.svg.setAttribute("height", (this.options.rowHeight * this.options.data.length).toString());
         if (this.options.table.width) {
             this.tableWidth = this.options.table.width;
@@ -1587,7 +1589,12 @@ class XERParser {
             };
         });
         // res = res.filter((d) => {
-        //   return d.start !== new Date(1970, 1, 1) && d.end !== new Date(2100, 1, 1);
+        //   return (
+        //     d.start > new Date(1970, 1, 1) &&
+        //     d.end < new Date(2100, 1, 1) &&
+        //     d.start !== null &&
+        //     d.end !== null
+        //   );
         // });
         console.log("RES", res);
         return res;
@@ -1630,6 +1637,7 @@ fileInput.addEventListener("change", (event) => {
     };
 
     let gantt = new GanttChart(options);
+    console.log("MINMAX", gantt.minDate, gantt.maxDate);
     gantt.draw();
   }, 5000);
 

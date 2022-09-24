@@ -141,7 +141,12 @@ export class XERParser {
       };
     });
     // res = res.filter((d) => {
-    //   return d.start !== new Date(1970, 1, 1) && d.end !== new Date(2100, 1, 1);
+    //   return (
+    //     d.start > new Date(1970, 1, 1) &&
+    //     d.end < new Date(2100, 1, 1) &&
+    //     d.start !== null &&
+    //     d.end !== null
+    //   );
     // });
     console.log("RES", res);
 
