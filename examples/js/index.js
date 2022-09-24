@@ -37,6 +37,7 @@ fileInput.addEventListener("change", (event) => {
     };
 
     let gantt = new GanttChart(options);
+    console.log("MINMAX", gantt.minDate, gantt.maxDate);
     gantt.draw();
   }, 5000);
 
