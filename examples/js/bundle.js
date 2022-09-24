@@ -1759,7 +1759,7 @@ fileInput.addEventListener("change", (event) => {
     const getWbsEnd = Date.now();
     console.log("get wbss time: ", getWbsEnd - getWbsStart);
     const scheduleData = wbss.concat(activities);
-    console.log(scheduleData);
+    console.log("schedule Data", scheduleData);
     let container = document.getElementById("ganttChart");
     container.innerHTML = "";
     let options = {
