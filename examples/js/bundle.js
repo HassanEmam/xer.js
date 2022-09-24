@@ -1,3 +1,4 @@
+
 /**
  * Gets a date and returns a scaled value
  * @param  {Date} dateToSclae the date to convert into a scaled value
@@ -10,10 +11,13 @@ function scaleX(dateToSclae, minDate, maxDate, width) {
     const min = minDate.getTime();
     const max = maxDate.getTime();
     const overallDuration = max - min;
-    // console.log(dateToSclae);
+    console.log("dateToSclae", dateToSclae);
+    if(dateToSclae && dateToSclae instanceof Date) {
     const date = dateToSclae.getTime();
     const scale = Math.ceil((date - min) * (width / overallDuration));
     return scale;
+    }
+    return 0
 }
 
 class Tasks {
@@ -1608,7 +1612,7 @@ fileInput.addEventListener("change", (event) => {
     const activities = parser.getActivities();
     const wbss = parser.getWBS();
     const scheduleData = wbss.concat(activities);
-    console.log(scheduleData);
+    console.log("schedule Data", scheduleData);
     let container = document.getElementById("ganttChart");
     container.innerHTML = "";
     let options = {
