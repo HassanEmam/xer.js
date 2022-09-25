@@ -61,6 +61,12 @@ fileInput.addEventListener("change", (event) => {
         div.innerHTML = resource.resource + " " + resource.quantity;
         resourcediv.appendChild(div);
       });
+      parser.getActivityCodes(task.id).forEach((code) => {
+        const div = document.createElement("div");
+        console.log(code);
+        div.innerHTML = code.type + " " + code.code;
+        resourcediv.appendChild(div);
+      });
       // alert("Clicked " + task.id + " " + task.name);
     });
   }, 100);

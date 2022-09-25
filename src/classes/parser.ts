@@ -1,4 +1,4 @@
-import { ResourceAllocation } from "./resourceAllocation";
+import { ResourceAllocation, TaskActv } from "./interfaces";
 
 export class XERParser {
   file: Blob;
@@ -167,6 +167,28 @@ export class XERParser {
       let obj = {
         resource: rsrcObj["rsrc_short_name"] as string,
         quantity: parseFloat(trsrc.target_qty),
+      };
+      to_return.push(obj);
+    });
+
+    return to_return;
+  }
+
+  getActivityCodes(id: number) {
+    const s_id = id.toString();
+    let to_return: TaskActv[] = [];
+    let taskCodes = this.byType["TASKACTV"];
+    let currTskCodes = taskCodes.filter((code) => {
+      return code.task_id === s_id;
+    });
+    currTskCodes.forEach((code) => {
+      const type = this.byId[code.actv_code_type_id] as any;
+      console.log("Type ", type);
+      const codeName = this.byId[code.actv_code_id] as any;
+      console.log("Code ", codeName);
+      let obj = {
+        type: type.actv_code_type,
+        code: codeName.actv_code_name,
       };
       to_return.push(obj);
     });

@@ -1754,6 +1754,26 @@ class XERParser {
         });
         return to_return;
     }
+    getActivityCodes(id) {
+        const s_id = id.toString();
+        let to_return = [];
+        let taskCodes = this.byType["TASKACTV"];
+        let currTskCodes = taskCodes.filter((code) => {
+            return code.task_id === s_id;
+        });
+        currTskCodes.forEach((code) => {
+            const type = this.byId[code.actv_code_type_id];
+            console.log("Type ", type);
+            const codeName = this.byId[code.actv_code_id];
+            console.log("Code ", codeName);
+            let obj = {
+                type: type.actv_code_type,
+                code: codeName.actv_code_name,
+            };
+            to_return.push(obj);
+        });
+        return to_return;
+    }
 }
 
 const fileInput = document.getElementById("file");
@@ -1814,6 +1834,12 @@ fileInput.addEventListener("change", (event) => {
       parser.getActivityResource(task.id).forEach((resource) => {
         const div = document.createElement("div");
         div.innerHTML = resource.resource + " " + resource.quantity;
+        resourcediv.appendChild(div);
+      });
+      parser.getActivityCodes(task.id).forEach((code) => {
+        const div = document.createElement("div");
+        console.log(code);
+        div.innerHTML = code.type + " " + code.code;
         resourcediv.appendChild(div);
       });
       // alert("Clicked " + task.id + " " + task.name);
