@@ -1754,10 +1754,56 @@ class XERParser {
         });
         return to_return;
     }
+    getActivityCodes(id) {
+        const s_id = id.toString();
+        let to_return = [];
+        let taskCodes = this.byType["TASKACTV"];
+        let currTskCodes = taskCodes.filter((code) => {
+            return code.task_id === s_id;
+        });
+        currTskCodes.forEach((code) => {
+            const type = this.byId[code.actv_code_type_id];
+            console.log("Type ", type);
+            const codeName = this.byId[code.actv_code_id];
+            console.log("Code ", codeName);
+            let obj = {
+                type: type.actv_code_type,
+                code: codeName.actv_code_name,
+            };
+            to_return.push(obj);
+        });
+        return to_return;
+    }
+    getPredecessors(id) {
+        const s_id = id.toString();
+        let to_return = [];
+        let taskPreds = this.byType["TASKPRED"];
+        let currTskPreds = taskPreds.filter((pred) => {
+            return pred.task_id === s_id;
+        });
+        console.log("Preds", currTskPreds);
+        currTskPreds.forEach((pred) => {
+            const pred_objs = this.byType["TASK"].filter((t) => {
+                return t.task_id.toString() === pred["pred_task_id"].toString();
+            });
+            console.log("Pred Obj ", pred["pred_task_id"], pred_objs);
+            for (const pred_obj of pred_objs) {
+                let obj = {
+                    id: parseInt(pred_obj["task_id"]),
+                    code: pred_obj["task_code"],
+                    name: pred_obj["task_name"],
+                    type: pred.pred_type,
+                    lag: parseFloat(pred.lag_hr_cnt),
+                };
+                to_return.push(obj);
+            }
+        });
+        console.log("Predecessors", to_return);
+        return to_return;
+    }
 }
 
 const fileInput = document.getElementById("file");
-const resourcediv = document.getElementById("resources");
 
 fileInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
@@ -1808,15 +1854,9 @@ fileInput.addEventListener("change", (event) => {
 
     console.log("MINMAX", gantt.minDate, gantt.maxDate);
     gantt.on("taskClicked", (task) => {
-      console.log("Event Data:", task);
-      console.log(parser.getActivityResource(task.id));
-      resourcediv.innerHTML = "";
-      parser.getActivityResource(task.id).forEach((resource) => {
-        const div = document.createElement("div");
-        div.innerHTML = resource.resource + " " + resource.quantity;
-        resourcediv.appendChild(div);
-      });
-      // alert("Clicked " + task.id + " " + task.name);
+      createCodesTable(task, parser);
+      createPredecessorsTable(task, parser);
+      createResourceTable(task, parser);
     });
   }, 100);
 
@@ -1828,3 +1868,104 @@ fileInput.addEventListener("change", (event) => {
   };
   reader.readAsText(file);
 });
+
+function createCodesTable(task, parser) {
+  const codeDiv = document.getElementById("Codes");
+  codeDiv.innerHTML = "";
+  const codesTable = document.createElement("table");
+  const codesTableHead = document.createElement("thead");
+  const codesTableBody = document.createElement("tbody");
+  const codesTableHeadRow = document.createElement("tr");
+  const codesTableHeadRowCode = document.createElement("th");
+  const codesTableHeadRowType = document.createElement("th");
+  codesTableHeadRowType.innerHTML = "Type";
+  codesTableHeadRowCode.innerHTML = "Code";
+  codesTableHeadRow.appendChild(codesTableHeadRowCode);
+  codesTableHeadRow.appendChild(codesTableHeadRowType);
+  codesTableHead.appendChild(codesTableHeadRow);
+  codesTable.appendChild(codesTableHead);
+  codesTable.appendChild(codesTableBody);
+  parser.getActivityCodes(task.id).forEach((code) => {
+    document.createElement("div");
+    const row = document.createElement("tr");
+    const codeCell = document.createElement("td");
+    const typeCell = document.createElement("td");
+    typeCell.innerHTML = code.type;
+    codeCell.innerHTML = code.code;
+    row.appendChild(codeCell);
+    row.appendChild(typeCell);
+    codesTableBody.appendChild(row);
+  });
+  codeDiv.appendChild(codesTable);
+}
+
+function createPredecessorsTable(task, parser) {
+  const predDiv = document.getElementById("predecessors");
+  predDiv.innerHTML = "";
+  const predTable = document.createElement("table");
+  const predTableHead = document.createElement("thead");
+  const predTableBody = document.createElement("tbody");
+  const predTableHeadRow = document.createElement("tr");
+  const predTableHeadRowCode = document.createElement("th");
+  const predTableHeadRowName = document.createElement("th");
+  const predTableHeadRowType = document.createElement("th");
+  const predTableHeadRowLag = document.createElement("th");
+  predTableHeadRowCode.innerHTML = "Code";
+  predTableHeadRowName.innerHTML = "Name";
+  predTableHeadRowType.innerHTML = "Type";
+  predTableHeadRowLag.innerHTML = "Lag";
+  predTableHeadRow.appendChild(predTableHeadRowCode);
+  predTableHeadRow.appendChild(predTableHeadRowName);
+  predTableHeadRow.appendChild(predTableHeadRowType);
+  predTableHeadRow.appendChild(predTableHeadRowLag);
+  predTableHead.appendChild(predTableHeadRow);
+  predTable.appendChild(predTableHead);
+  predTable.appendChild(predTableBody);
+  parser.getPredecessors(task.id).forEach((predecessor) => {
+    const row = document.createElement("tr");
+    const codeCell = document.createElement("td");
+    const nameCell = document.createElement("td");
+    const typeCell = document.createElement("td");
+    const lagCell = document.createElement("td");
+    codeCell.innerHTML = predecessor.code;
+    nameCell.innerHTML = predecessor.name;
+    typeCell.innerHTML = predecessor.type;
+    lagCell.innerHTML = predecessor.lag;
+    row.appendChild(codeCell);
+    row.appendChild(nameCell);
+    row.appendChild(typeCell);
+    row.appendChild(lagCell);
+    predTableBody.appendChild(row);
+  });
+  predDiv.appendChild(predTable);
+}
+
+function createResourceTable(task, parser) {
+  const resourcediv = document.getElementById("Resources");
+  resourcediv.innerHTML = "";
+  const resourceTable = document.createElement("table");
+  const resourceTableHead = document.createElement("thead");
+  const resourceTableBody = document.createElement("tbody");
+  const resourceTableHeadRow = document.createElement("tr");
+  const resourceTableHeadRowResource = document.createElement("th");
+  const resourceTableHeadRowQuantity = document.createElement("th");
+  resourceTableHeadRowResource.innerHTML = "Resource";
+  resourceTableHeadRowQuantity.innerHTML = "Quantity";
+  resourceTableHeadRow.appendChild(resourceTableHeadRowResource);
+  resourceTableHeadRow.appendChild(resourceTableHeadRowQuantity);
+  resourceTableHead.appendChild(resourceTableHeadRow);
+  resourceTable.appendChild(resourceTableHead);
+  resourceTable.appendChild(resourceTableBody);
+  parser.getActivityResource(task.id).forEach((resource) => {
+    const row = document.createElement("tr");
+    const resourceCell = document.createElement("td");
+    const quantityCell = document.createElement("td");
+    resourceCell.innerHTML = resource.resource;
+    quantityCell.innerHTML = resource.quantity;
+    row.appendChild(resourceCell);
+    row.appendChild(quantityCell);
+    resourceTableBody.appendChild(row);
+  });
+  console.log(resourceTable);
+  resourcediv.appendChild(resourceTable);
+}

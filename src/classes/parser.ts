@@ -1,4 +1,4 @@
-import { ResourceAllocation } from "./resourceAllocation";
+import { ResourceAllocation, TaskActv, Predecessor } from "./interfaces";
 
 export class XERParser {
   file: Blob;
@@ -171,6 +171,56 @@ export class XERParser {
       to_return.push(obj);
     });
 
+    return to_return;
+  }
+
+  getActivityCodes(id: number) {
+    const s_id = id.toString();
+    let to_return: TaskActv[] = [];
+    let taskCodes = this.byType["TASKACTV"];
+    let currTskCodes = taskCodes.filter((code) => {
+      return code.task_id === s_id;
+    });
+    currTskCodes.forEach((code) => {
+      const type = this.byId[code.actv_code_type_id] as any;
+      console.log("Type ", type);
+      const codeName = this.byId[code.actv_code_id] as any;
+      console.log("Code ", codeName);
+      let obj = {
+        type: type.actv_code_type,
+        code: codeName.actv_code_name,
+      };
+      to_return.push(obj);
+    });
+
+    return to_return;
+  }
+
+  getPredecessors(id: number) {
+    const s_id = id.toString();
+    let to_return: Predecessor[] = [];
+    let taskPreds = this.byType["TASKPRED"];
+    let currTskPreds = taskPreds.filter((pred) => {
+      return pred.task_id === s_id;
+    });
+    console.log("Preds", currTskPreds);
+    currTskPreds.forEach((pred) => {
+      const pred_objs = this.byType["TASK"].filter((t) => {
+        return t.task_id.toString() === pred["pred_task_id"].toString();
+      }) as any;
+      console.log("Pred Obj ", pred["pred_task_id"], pred_objs);
+      for (const pred_obj of pred_objs) {
+        let obj = {
+          id: parseInt(pred_obj["task_id"]),
+          code: pred_obj["task_code"],
+          name: pred_obj["task_name"],
+          type: pred.pred_type,
+          lag: parseFloat(pred.lag_hr_cnt),
+        };
+        to_return.push(obj);
+      }
+    });
+    console.log("Predecessors", to_return);
     return to_return;
   }
 }
