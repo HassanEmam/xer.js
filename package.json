@@ -1,6 +1,6 @@
 {
   "name": "@constology/xer.js",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "devDependencies": {
     "@types/node": "^18.7.14",
     "@types/webpack": "^5.28.0",

@@ -1,3 +1,5 @@
+import { ResourceAllocation } from "./resourceAllocation";
+
 export class XERParser {
   file: Blob;
   fileReader: FileReader;
@@ -151,5 +153,24 @@ export class XERParser {
     console.log("RES", res);
 
     return res;
+  }
+
+  getActivityResource(id: number) {
+    const s_id = id.toString();
+    let to_return: ResourceAllocation[] = [];
+    let taskRsrc = this.byType["TASKRSRC"];
+    let currTskRsrc = taskRsrc.filter((rsrc) => {
+      return rsrc.task_id === s_id;
+    });
+    currTskRsrc.forEach((trsrc) => {
+      let rsrcObj: any = this.byId[trsrc.rsrc_id];
+      let obj = {
+        resource: rsrcObj["rsrc_short_name"] as string,
+        quantity: parseFloat(trsrc.target_qty),
+      };
+      to_return.push(obj);
+    });
+
+    return to_return;
   }
 }

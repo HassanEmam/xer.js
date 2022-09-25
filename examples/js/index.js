@@ -2,6 +2,7 @@ import { GanttChart } from "4d-gantt-chart";
 import { XERParser } from "xer.js";
 
 const fileInput = document.getElementById("file");
+const resourcediv = document.getElementById("resources");
 
 fileInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
@@ -53,6 +54,13 @@ fileInput.addEventListener("change", (event) => {
     console.log("MINMAX", gantt.minDate, gantt.maxDate);
     gantt.on("taskClicked", (task) => {
       console.log("Event Data:", task);
+      console.log(parser.getActivityResource(task.id));
+      resourcediv.innerHTML = "";
+      parser.getActivityResource(task.id).forEach((resource) => {
+        const div = document.createElement("div");
+        div.innerHTML = resource.resource + " " + resource.quantity;
+        resourcediv.appendChild(div);
+      });
       // alert("Clicked " + task.id + " " + task.name);
     });
   }, 100);

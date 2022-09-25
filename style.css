@@ -42,6 +42,12 @@ body {
   width: 100%;
 }
 
+#resources {
+  width: 100%;
+  margin: 2rem;
+  height: 10rem;
+  border: solid lightblue;
+}
 /*
 .level1 td:first-child {
   padding-left: 15px;

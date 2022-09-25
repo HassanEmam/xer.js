@@ -1737,9 +1737,27 @@ class XERParser {
         console.log("RES", res);
         return res;
     }
+    getActivityResource(id) {
+        const s_id = id.toString();
+        let to_return = [];
+        let taskRsrc = this.byType["TASKRSRC"];
+        let currTskRsrc = taskRsrc.filter((rsrc) => {
+            return rsrc.task_id === s_id;
+        });
+        currTskRsrc.forEach((trsrc) => {
+            let rsrcObj = this.byId[trsrc.rsrc_id];
+            let obj = {
+                resource: rsrcObj["rsrc_short_name"],
+                quantity: parseFloat(trsrc.target_qty),
+            };
+            to_return.push(obj);
+        });
+        return to_return;
+    }
 }
 
 const fileInput = document.getElementById("file");
+const resourcediv = document.getElementById("resources");
 
 fileInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
@@ -1791,6 +1809,13 @@ fileInput.addEventListener("change", (event) => {
     console.log("MINMAX", gantt.minDate, gantt.maxDate);
     gantt.on("taskClicked", (task) => {
       console.log("Event Data:", task);
+      console.log(parser.getActivityResource(task.id));
+      resourcediv.innerHTML = "";
+      parser.getActivityResource(task.id).forEach((resource) => {
+        const div = document.createElement("div");
+        div.innerHTML = resource.resource + " " + resource.quantity;
+        resourcediv.appendChild(div);
+      });
       // alert("Clicked " + task.id + " " + task.name);
     });
   }, 100);

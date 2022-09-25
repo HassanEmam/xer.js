@@ -34,9 +34,10 @@ You can see a live demo of the project [here](https://hassanemam.github.io/xer.j
 
 ## 📜TODO
 
-- [ ] Calculate the start and finish dates of the WBS levels
-- [ ] Generate all WBS levels
+- [x] Calculate the start and finish dates of the WBS levels
+- [x] Generate all WBS levels
 - [ ] improve performance
-- [ ] Extract resources information
+- [x] Extract resources information
 - [ ] Extract activity codes
+- [ ] Extract activity relationships
 - [ ] Generate charts
