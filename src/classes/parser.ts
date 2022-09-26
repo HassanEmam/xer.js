@@ -178,22 +178,25 @@ export class XERParser {
     const s_id = id.toString();
     let to_return: TaskActv[] = [];
     let taskCodes = this.byType["TASKACTV"];
-    let currTskCodes = taskCodes.filter((code) => {
-      return code.task_id === s_id;
-    });
-    currTskCodes.forEach((code) => {
-      const type = this.byId[code.actv_code_type_id] as any;
-      console.log("Type ", type);
-      const codeName = this.byId[code.actv_code_id] as any;
-      console.log("Code ", codeName);
-      let obj = {
-        type: type.actv_code_type,
-        code: codeName.actv_code_name,
-      };
-      to_return.push(obj);
-    });
+    if (taskCodes) {
+      let currTskCodes = taskCodes.filter((code) => {
+        return code.task_id === s_id;
+      });
+      currTskCodes.forEach((code) => {
+        const type = this.byId[code.actv_code_type_id] as any;
+        console.log("Type ", type);
+        const codeName = this.byId[code.actv_code_id] as any;
+        console.log("Code ", codeName);
+        let obj = {
+          type: type.actv_code_type,
+          code: codeName.actv_code_name,
+        };
+        to_return.push(obj);
+      });
 
-    return to_return;
+      return to_return;
+    }
+    return [];
   }
 
   getPredecessors(id: number) {
