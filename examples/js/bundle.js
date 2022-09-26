@@ -820,6 +820,7 @@ class Table extends EventEmitter {
         }
     }
     createLeaf(data, update = false) {
+        const leafStart = Date.now();
         if (data.visible === true) {
             new TableRow(this.context, this.gantt, data, this.options, this.rowCounter, this.columns);
         }
@@ -933,6 +934,8 @@ class Table extends EventEmitter {
             });
             this.rowCounter++;
         }
+        const leafEnd = Date.now();
+        console.log(`Leaf creation took ${leafEnd - leafStart}ms`);
     }
     addEvents(toggle) {
         const tr = toggle.closest("tr");
@@ -1758,21 +1761,24 @@ class XERParser {
         const s_id = id.toString();
         let to_return = [];
         let taskCodes = this.byType["TASKACTV"];
-        let currTskCodes = taskCodes.filter((code) => {
-            return code.task_id === s_id;
-        });
-        currTskCodes.forEach((code) => {
-            const type = this.byId[code.actv_code_type_id];
-            console.log("Type ", type);
-            const codeName = this.byId[code.actv_code_id];
-            console.log("Code ", codeName);
-            let obj = {
-                type: type.actv_code_type,
-                code: codeName.actv_code_name,
-            };
-            to_return.push(obj);
-        });
-        return to_return;
+        if (taskCodes) {
+            let currTskCodes = taskCodes.filter((code) => {
+                return code.task_id === s_id;
+            });
+            currTskCodes.forEach((code) => {
+                const type = this.byId[code.actv_code_type_id];
+                console.log("Type ", type);
+                const codeName = this.byId[code.actv_code_id];
+                console.log("Code ", codeName);
+                let obj = {
+                    type: type.actv_code_type,
+                    code: codeName.actv_code_name,
+                };
+                to_return.push(obj);
+            });
+            return to_return;
+        }
+        return [];
     }
     getPredecessors(id) {
         const s_id = id.toString();
