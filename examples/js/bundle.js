@@ -22,8 +22,44 @@ class Tasks {
     constructor(data, gantt) {
         this.data = data;
         this.gantt = gantt;
+        this.calculateWBSDates();
         this.nestedData = this.list_to_tree(this.data);
         this.createTree(false);
+        console.log(this.nestedData);
+    }
+    calculateWBSDates() {
+        let tasks = this.data.filter((act) => {
+            return this.data.filter((d) => d.parent === act.id).length === 0;
+        });
+        let wbss = this.data.filter((act) => {
+            return this.data.filter((d) => d.parent === act.id).length !== 0;
+        });
+        for (let wbs of wbss) {
+            const tmpTasks = tasks.filter((t) => t.parent === wbs.id);
+            if (tmpTasks.length > 0) {
+                let min = tmpTasks.reduce((prev, current) => {
+                    return prev.start < current.start ? prev : current;
+                });
+                let max = tmpTasks.reduce((prev, current) => {
+                    return prev.start > current.start ? prev : current;
+                });
+                wbs.start = min.start;
+                wbs.end = max.end;
+            }
+        }
+        for (let wbs of wbss) {
+            const tmpChildWbss = wbss.filter((t) => t.parent === wbs.id);
+            if (tmpChildWbss.length > 0) {
+                let min = tmpChildWbss.reduce((prev, current) => {
+                    return prev.start < current.start ? prev : current;
+                });
+                let max = tmpChildWbss.reduce((prev, current) => {
+                    return prev.start > current.start ? prev : current;
+                });
+                wbs.start = min.start;
+                wbs.end = max.end;
+            }
+        }
     }
     createTree(update = false) {
         this.gantt.table.rowCounter = 0;
@@ -111,6 +147,7 @@ class Tasks {
             nestedObj.children = this.getChildren(parent, data);
             tree.push(nestedObj);
         }
+        console.log(tree);
         return tree;
     }
     getChildren(parent, data) {
@@ -185,91 +222,6 @@ class DateLine {
     }
 }
 
-class RowCell {
-    constructor(row, cell, data) {
-        this.row = row;
-        this.data = data;
-        this.index = cell;
-        this.expanded = this.data.expanded || true;
-        this.color = "rgba(255,255,255,1)";
-        this.x = (this.index * this.row.width) / this.row.columns.length;
-        this.y = this.row.y;
-        this.width = this.row.width / this.row.columns.length;
-        this.height = this.row.height;
-        this.text = data[this.row.columns[this.index]];
-        this.draw();
-        // this.row.gantt.cells.push(this);
-    }
-    draw() {
-        let x;
-        if (!this.row.width) {
-            this.row.width = 400;
-        }
-        let hasChilds = false;
-        if (this.data.children.length > 0) {
-            hasChilds = true;
-        }
-        x = this.x;
-        this.row.context.fillStyle = "white";
-        this.row.context.fillRect(this.x + 5, this.y + 5, this.width - 10, this.height - 10);
-        this.row.context.fillStyle =
-            this.row.options.table.header?.fontColor || "black";
-        this.row.context.textBaseline = "middle";
-        this.row.context.font = `14px Arial`;
-        let text;
-        if (this.data[this.row.columns[this.index]] instanceof Date) {
-            text = this.data[this.row.columns[this.index]]
-                .toLocaleString("en-GB")
-                .split(",")[0];
-        }
-        else {
-            text = this.data[this.row.columns[this.index]].toString();
-        }
-        if (this.index === 0) {
-            x = (this.data.level || 0) * 30 + this.index * this.width;
-            if (hasChilds) {
-                let addChar;
-                if (this.expanded === false) {
-                    addChar = "\u{229E}";
-                }
-                else {
-                    addChar = "\u{229F}";
-                }
-                text = addChar + "\t\t" + text;
-            }
-            this.row.context.textAlign = "left";
-        }
-        else {
-            this.row.context.textAlign = "center";
-            x = x + this.width / 2;
-        }
-        this.row.context.fillText(text, x, this.y + this.height / 2);
-        this.row.context.strokeStyle = "black";
-    }
-    update() { }
-    collision(x, y) {
-        if (x >= this.x &&
-            x <= this.x + this.width &&
-            y >= this.y &&
-            y <= this.y + this.height) {
-            this.color = "rgba(173,216,230,0.1)";
-            if (this.index === 0) {
-                this.row.heilighted = false;
-                this.expanded = !this.expanded;
-                this.data.expanded = !this.data.expanded;
-                // this.draw();
-            }
-            this.draw();
-            return true;
-        }
-        else {
-            this.color = "rgba(255,255,255,1)";
-            //   this.draw();
-            return false;
-        }
-    }
-}
-
 /**
  * This function draws a line given its coordinates and colour
  * @param {CanvasRenderingContext2D} ctx the canvas context
@@ -279,53 +231,26 @@ class RowCell {
  * @param {number} endY the ending point of the line on the y axis
  * @param {string} color the color of the line
  */
-function drawLine(ctx, startX, startY, endX, endY, color) {
-    // ctx.globalCompositeOperation = "destination-over";
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-    ctx.restore();
-}
-function drawBar(ctx, upperLeftCornerX, upperLeftCornerY, width, height, color, text) {
-    ctx.save();
-    ctx.fillStyle = color;
-    ctx.fillRect(upperLeftCornerX, upperLeftCornerY, width, height);
-    if (text) {
-        // ctx.globalCompositeOperation = "source-over";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        let fontSize = Math.min(12);
-        ctx.font = `${fontSize}px Arial`;
-        ctx.fillStyle = "black";
-        ctx.fillText(text, upperLeftCornerX + width / 2, upperLeftCornerY + height / 2, width);
-    }
-    ctx.restore();
-}
 /**
  *
  * @param {data} data the data to be processes
  * @returns an array containing the min and max date
  */
 function minmax(data) {
-  let max = new Date(0);
-  let min = data[0].start;
-  data.forEach((element) => {
-    if (element.end && element.end > max) {
-      max = element.end;
-    }
-    if (element.start && element.start < min && element.start > new Date(0)) {
-      min = element.start;
-    }
-  });
-  min = new Date(min.getFullYear(), min.getMonth(), min.getDate());
-  max = new Date(max.getFullYear(), max.getMonth(), max.getDate());
-  return [min, max];
+    let max = new Date(0);
+    let min = new Date(2100, 0, 1);
+    data.forEach((element) => {
+        if (element.end && element.end > max) {
+            max = element.end;
+        }
+        if (element.start && element.start < min && element.start > new Date(0)) {
+            min = element.start;
+        }
+    });
+    min = new Date(min.getFullYear(), min.getMonth(), min.getDate());
+    max = new Date(max.getFullYear(), max.getMonth(), max.getDate());
+    return [min, max];
 }
-
 /**
  * compares two dates and returns the difference in months
  * @param {Date} firstMonth the first date of the period to compare
@@ -351,6 +276,15 @@ function dayDiff(startDate, endDate) {
     return days;
 }
 /**
+ * This function returns the number of days in a given month
+ * @param year the year number
+ * @param month the month number
+ * @returns {number} the number of days in the given month
+ */
+function getDaysInMonth(year, month) {
+    return new Date(year, month, 0).getDate();
+}
+/**
  * This function the symbol of a day of the week given the year, month and day
  * @param year the year number
  * @param month the month number
@@ -361,6 +295,40 @@ function getDayOfWeek(year, month, day) {
     const daysOfTheWeekArr = ["M", "T", "W", "T", "F", "S", "S"];
     const dayOfTheWeekIndex = new Date(year, month, day).getDay();
     return daysOfTheWeekArr[dayOfTheWeekIndex];
+}
+/**
+ * Create a formatted date string
+ * @param {number} year
+ * @param {number} month
+ * @param {number} day
+ * @returns {string} a formatted date string
+ */
+function createFormattedDateFromStr(year, month, day) {
+    let monthStr = month.toString();
+    let dayStr = day.toString();
+    if (monthStr.length === 1) {
+        monthStr = `0${monthStr}`;
+    }
+    if (dayStr.length === 1) {
+        dayStr = `0${dayStr}`;
+    }
+    return `${year}-${monthStr}-${dayStr}`;
+}
+/**
+ * Formats a date object to a string
+ * @param {Date}date the date to be formatted
+ * @returns {string} a formatted date string
+ */
+function createFormattedDateFromDate(date) {
+    let monthStr = (date.getMonth() + 1).toString();
+    let dayStr = date.getDate().toString();
+    if (monthStr.length === 1) {
+        monthStr = `0${monthStr}`;
+    }
+    if (dayStr.length === 1) {
+        dayStr = `0${dayStr}`;
+    }
+    return `${date.getFullYear()}-${monthStr}-${dayStr}`;
 }
 /**
  * Adds number of days to a date and return new date
@@ -387,6 +355,133 @@ const months = [
     "Nov",
     "Dec",
 ];
+
+class TableRow {
+    constructor(ctx, gantt, data, options, rowIndex, columns) {
+        this.columns = [];
+        this.context = ctx;
+        // this.nestedData = data;
+        this.x = 0;
+        this.cells = [];
+        this.options = options;
+        this.width = options.table.width;
+        this.height = this.options.rowHeight;
+        this.rowCounter = rowIndex;
+        this.heilighted = false;
+        this.y = this.options.rowHeight * this.rowCounter;
+        this.gantt = gantt;
+        this.data = data;
+        this.columns = columns;
+        this.color = "rgba(255,255,255,0)";
+        this.drawgrid();
+        this.drawBar();
+    }
+    createTaskDurationEl(taskDuration, startCell) {
+        this.gantt.gridDiv.querySelector(".gantt-time-period-cell-container");
+        const taskDurationEl = document.createElement("div");
+        taskDurationEl.classList.add("taskDuration");
+        taskDurationEl.id = this.data.id;
+        const days = dayDiff(this.data.start, this.data.end);
+        taskDurationEl.style.width = `calc(${days} * 100%)`;
+        // append at start pos
+        startCell.appendChild(taskDurationEl);
+        return days;
+    }
+    drawBar() {
+        const dateStr = createFormattedDateFromDate(this.data.start);
+        // find gantt-time-period-cell start position
+        const startCell = this.gantt.gridDiv.querySelector(`div[data-task="${this.data.id}"][data-date="${dateStr}"]`);
+        console.log("Drawing bar", this.data, startCell);
+        if (startCell) {
+            let duration = dayDiff(this.data.start, this.data.end);
+            // taskDuration bar is a child of start date position of specific task
+            this.createTaskDurationEl(duration, startCell);
+        }
+    }
+    draw() {
+        // this.drawBar();
+        // this.cells = [];
+        // drawBar(this.context, this.x, this.y, this.width, this.height, this.color);
+        // if (!this.options.timeLineHeight) {
+        //   this.options.timeLineHeight = 120;
+        // }
+        // if (!this.options.rowHeight) {
+        //   this.options.rowHeight = 120;
+        // }
+        // let y = this.options.rowHeight * this.rowCounter;
+        // let hasChilds: boolean = false;
+        // if ((this.data.children as nestedData[]).length > 0) {
+        //   hasChilds = true;
+        // }
+        // for (let colidx = 0; colidx < this.columns.length; colidx++) {
+        //   let cell = new RowCell(this, colidx, this.data);
+        //   this.cells.push(cell);
+        // }
+        // drawLine(
+        //   this.context,
+        //   this.x,
+        //   this.y,
+        //   this.x + this.width,
+        //   this.y,
+        //   "black"
+        // );
+    }
+    drawgrid() {
+        let startMonth = new Date(this.gantt.minDate);
+        let numMonths = monthDiff(this.gantt.minDate, this.gantt.maxDate);
+        const dayElContainer = document.createElement("div");
+        dayElContainer.className = "gantt-time-period-cell-container";
+        dayElContainer.style.gridTemplateColumns = `repeat(${numMonths}, 1fr)`;
+        this.gantt.gridDiv.appendChild(dayElContainer);
+        console.log("Data in TableRow", this.data);
+        let task = this.data;
+        let month = new Date(startMonth);
+        for (let i = 0; i < numMonths; i++) {
+            const timePeriodEl = document.createElement("div");
+            timePeriodEl.className = "gantt-time-period";
+            dayElContainer.appendChild(timePeriodEl);
+            const currYear = month.getFullYear();
+            const currMonth = month.getMonth() + 1;
+            const numDays = getDaysInMonth(currYear, currMonth);
+            for (let i = 1; i <= numDays; i++) {
+                let dayEl = document.createElement("div");
+                dayEl.className = "gantt-time-period-cell";
+                // color weekend cells differently
+                const dayOfTheWeek = getDayOfWeek(currYear, currMonth - 1, i - 1);
+                if (dayOfTheWeek === "S") {
+                    dayEl.style.backgroundColor = "#f7f7f7";
+                }
+                // add task and date data attributes
+                const formattedDate = createFormattedDateFromStr(currYear, currMonth, i);
+                dayEl.dataset.task = task.id;
+                dayEl.dataset.date = formattedDate;
+                timePeriodEl.appendChild(dayEl);
+            }
+            month.setMonth(month.getMonth() + 1);
+        }
+    }
+    collision(x, y) {
+        // if (
+        //   x >= this.x &&
+        //   x <= this.x + this.width &&
+        //   y >= this.y &&
+        //   y <= this.y + this.height
+        // ) {
+        //   if (!this.heilighted) {
+        //     this.color = "rgba(173,216,230,0.1)";
+        //     this.draw();
+        //     this.heilighted = true;
+        //   }
+        //   return true;
+        // } else {
+        //   this.color = "rgba(255,255,255,1)";
+        //   this.draw();
+        //   this.heilighted = false;
+        //   return false;
+        // }
+    }
+    update() { }
+}
 
 class EventEmitter {
     constructor() {
@@ -522,169 +617,6 @@ class EventEmitter {
     }
 }
 
-class Bar extends EventEmitter {
-    constructor(x, y, width, height, context, color, fontColor, name, options, gantt, taskData) {
-        super();
-        this.width = width;
-        this.height = height;
-        this.x = x;
-        this.y = y;
-        this.color = color;
-        this.fontColor = fontColor;
-        this.name = name;
-        this.context = context;
-        this.options = options;
-        this.color = this.options.barColor;
-        this.hoverColor = this.options.barColorHover;
-        this.gantt = gantt;
-        this.taskData = taskData;
-    }
-    draw(color, fontColor, name) {
-        const sepLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        sepLine.setAttribute("x1", "0");
-        sepLine.setAttribute("x2", this.gantt.svg.clientWidth.toString());
-        sepLine.setAttribute("y1", (this.y + this.options.rowHeight * 0.8).toString());
-        sepLine.setAttribute("y2", (this.y + this.options.rowHeight * 0.8).toString());
-        sepLine.setAttribute("stroke", "lightgray");
-        this.gantt.svg.appendChild(sepLine);
-        // drawLine(
-        //   this.context,
-        //   0,
-        //   this.y + this.options.rowHeight * 0.8,
-        //   this.gantt.svg.clientWidth,
-        //   this.y + this.options.rowHeight * 0.8,
-        //   "lightgray"
-        // );
-        color
-            ? (this.color = color)
-            : this.color
-                ? this.color
-                : (this.color = "lightgreen");
-        fontColor
-            ? (this.fontColor = fontColor)
-            : this.fontColor
-                ? this.fontColor
-                : (this.fontColor = "white");
-        name ? (this.name = name) : this.name ? this.name : (this.name = "Task");
-        if (this.name) {
-            this.bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            this.bar.setAttribute("x", this.x.toString());
-            this.bar.setAttribute("y", this.y.toString());
-            this.bar.setAttribute("width", this.width.toString());
-            this.bar.setAttribute("height", this.height.toString());
-            this.bar.setAttribute("fill", this.color);
-            this.gantt.svg.appendChild(this.bar);
-            this.bar.addEventListener("mouseover", () => {
-                this.bar.setAttribute("fill", "red");
-            });
-            this.bar.addEventListener("mouseout", () => {
-                this.bar.setAttribute("fill", this.color);
-            });
-            this.bar.addEventListener("click", () => {
-                console.log("event triggered");
-                this.trigger("taskClicked", [this.taskData]);
-            });
-            this.gantt.bars.push(this);
-        }
-    }
-    update(x, y) {
-        this.draw();
-        this.x = x;
-        this.y = y;
-    }
-}
-
-class TableRow {
-    constructor(ctx, gantt, data, options, rowIndex, columns) {
-        this.columns = [];
-        this.context = ctx;
-        // this.nestedData = data;
-        this.x = 0;
-        this.cells = [];
-        this.options = options;
-        this.width = options.table.width;
-        this.height = this.options.rowHeight;
-        this.rowCounter = rowIndex;
-        this.heilighted = false;
-        this.y = this.options.rowHeight * this.rowCounter;
-        this.gantt = gantt;
-        this.data = data;
-        this.columns = columns;
-        this.color = "rgba(255,255,255,0)";
-        this.drawBar();
-    }
-    drawBar() {
-        var canvasActualWidth = this.gantt.svg.clientWidth;
-        Object.values(this.data);
-        let taskData = this.data;
-        if (!this.options.rowHeight) {
-            this.options.rowHeight = 40;
-        }
-        let yOffset = this.options.rowHeight * this.rowCounter + this.options.rowHeight * 0.2;
-        let xStart = scaleX(taskData.start, this.gantt.minDate, this.gantt.maxDate, canvasActualWidth);
-        let xEnd = scaleX(addDays(taskData.end, 1), this.gantt.minDate, this.gantt.maxDate, canvasActualWidth);
-        let barWidth = xEnd - xStart;
-        if (!this.options.timeLineHeight) {
-            this.options.timeLineHeight = 120;
-        }
-        if (this.options.showBaseline && this.options.showBaseline === true) {
-            let bar = new Bar(xStart, yOffset, barWidth, this.options.rowHeight * 0.4, this.gantt.ctx, this.options.barColor, "white", taskData.name, this.options, this.gantt, taskData);
-            this.gantt.tasks.push(bar);
-            bar.draw();
-            let blYOffset = this.options.rowHeight * this.rowCounter + this.options.rowHeight * 0.6;
-            let blStart = scaleX(taskData.baselineStart, this.gantt.minDate, this.gantt.maxDate, canvasActualWidth);
-            let blEnd = scaleX(addDays(taskData.baselineEnd, 1), this.gantt.minDate, this.gantt.maxDate, canvasActualWidth);
-            let blWidth = blEnd - blStart;
-            let blBar = new Bar(blStart, blYOffset, blWidth, this.options.rowHeight * 0.2, this.gantt.ctx, "yellow", "white", taskData.name, this.options, this.gantt, taskData);
-            blBar.draw("yellow");
-        }
-        else {
-            let bar = new Bar(xStart >= 0 ? xStart : 0, yOffset, barWidth, this.options.rowHeight * 0.6, this.gantt.ctx, this.options.barColor, "white", taskData.name, this.options, this.gantt, taskData);
-            this.gantt.tasks.push(bar);
-            bar.draw();
-        }
-        // this.gantt.ctx.restore();
-    }
-    draw() {
-        // this.drawBar();
-        this.cells = [];
-        drawBar(this.context, this.x, this.y, this.width, this.height, this.color);
-        if (!this.options.timeLineHeight) {
-            this.options.timeLineHeight = 120;
-        }
-        if (!this.options.rowHeight) {
-            this.options.rowHeight = 120;
-        }
-        this.options.rowHeight * this.rowCounter;
-        if (this.data.children.length > 0) ;
-        for (let colidx = 0; colidx < this.columns.length; colidx++) {
-            let cell = new RowCell(this, colidx, this.data);
-            this.cells.push(cell);
-        }
-        drawLine(this.context, this.x, this.y, this.x + this.width, this.y, "black");
-    }
-    collision(x, y) {
-        if (x >= this.x &&
-            x <= this.x + this.width &&
-            y >= this.y &&
-            y <= this.y + this.height) {
-            if (!this.heilighted) {
-                this.color = "rgba(173,216,230,0.1)";
-                this.draw();
-                this.heilighted = true;
-            }
-            return true;
-        }
-        else {
-            this.color = "rgba(255,255,255,1)";
-            this.draw();
-            this.heilighted = false;
-            return false;
-        }
-    }
-    update() { }
-}
-
 class Table extends EventEmitter {
     constructor(context, color, hoverColor, fontColor, columns, options, gantt) {
         super();
@@ -798,9 +730,6 @@ class Table extends EventEmitter {
                 this.createBranch(child, update);
             });
         }
-        // else {
-        //   this.createLeaf(data, update);
-        // }
         this.initEvents();
     }
     createBranch(data, update = false) {
@@ -820,7 +749,6 @@ class Table extends EventEmitter {
         }
     }
     createLeaf(data, update = false) {
-        const leafStart = Date.now();
         if (data.visible === true) {
             new TableRow(this.context, this.gantt, data, this.options, this.rowCounter, this.columns);
         }
@@ -830,12 +758,13 @@ class Table extends EventEmitter {
         }
         if (data.visible && data.visible === true) {
             const row = document.createElement("tr");
+            row.id = data.id;
             row.style.height = `${this.options.rowHeight}px`;
             row.style.maxHeight = `${this.options.rowHeight}px`;
             row.classList.add(`level${data.level}`);
             row.classList.add("table-collapse");
             row.setAttribute("data-depth", data.level.toString());
-            row.id = `ganttTable__${data.id.toString()}`;
+            row.id = `${data.id.toString()}`;
             // row.setAttribute("data", data);
             let toggle;
             for (let colidx = 0; colidx < this.columns.length; colidx++) {
@@ -934,23 +863,16 @@ class Table extends EventEmitter {
             });
             this.rowCounter++;
         }
-        const leafEnd = Date.now();
-        console.log(`Leaf creation took ${leafEnd - leafStart}ms`);
     }
     addEvents(toggle) {
         const tr = toggle.closest("tr");
-        const parent_id = parseInt(tr.id.split("__")[1]);
+        const parent_id = tr.id;
         const childs = this.findChildren(tr);
         // if element has class toggle then remove it and collapse
         if (toggle.classList.contains("toggle")) {
             toggle.classList.remove("toggle");
             toggle.classList.add("expanded");
             this.setInvisible(childs);
-            // childs.forEach((child) => {
-            //   const child_id = parseInt(child.id.replace("ganttTable__", ""));
-            //   // this.gantt.options.data.filter((d) => d.id == child_id)[0].visible =
-            //   //   false;
-            // });
             this.gantt.options.data.filter((d) => d.id == parent_id)[0].expanded =
                 false;
             this.gantt.options.data.filter((d) => d.id == parent_id)[0].hasChildren =
@@ -961,32 +883,37 @@ class Table extends EventEmitter {
             toggle.classList.remove("expanded");
             toggle.classList.add("toggle");
             let current = this.gantt.options.data.filter((d) => d.id == parent_id)[0];
-            const childss = this.getAllChilds(current);
-            // this.setVisible(childs);
-            childss.forEach((child) => {
-                child.visible = true;
-                let childChildren = this.gantt.options.data.filter((d) => d.parent == child.id);
-                if (childChildren.length > 0) {
-                    child.hasChildren = true;
-                }
-                else {
-                    child.hasChildren = false;
-                }
-                // child.hasChildren =  ? true : false;
-                // child.style.display = "none";
-            });
-            this.gantt.options.data.filter((d) => d.id == parent_id)[0].expanded =
-                true;
-            this.gantt.options.data.filter((d) => d.id == parent_id)[0].hasChildren =
-                true;
+            this.getAllChilds(current);
+            this.setVisible(childs);
+            // childss.forEach((child) => {
+            //   child.visible = true;
+            //   let childChildren = this.gantt.options.data.filter(
+            //     (d) => d.parent == child.id
+            //   );
+            //   if (childChildren.length > 0) {
+            //     child.hasChildren = true;
+            //   } else {
+            //     child.hasChildren = false;
+            //   }
+            // });
+            // this.gantt.options.data.filter((d) => d.id == parent_id)[0].expanded =
+            //   true;
+            // this.gantt.options.data.filter((d) => d.id == parent_id)[0].hasChildren =
+            //   true;
             this.gantt.updateGantt();
         }
     }
     setInvisible(childs) {
         for (let child of childs) {
-            let child_id = parseInt(child.id.toString().split("__")[1]);
-            this.gantt.options.data.filter((d) => d.id == child_id)[0].visible =
-                false;
+            let child_id = child.id;
+            // this.gantt.options.data.filter((d) => d.id == child_id)[0].visible =
+            //   false;
+            let ganttGrid = this.gantt.gridDiv.querySelector(`div[data-task="${child_id}"]`).parentElement.parentElement;
+            this.gantt.gridDiv.querySelector(`div[data-task="${child_id}"]`);
+            console.log("ganttGrid", ganttGrid);
+            child.style.display = "none";
+            ganttGrid.style.display = "none";
+            // taskDuration.parentElement.style.display = "none";
             let children = this.findChildren(child);
             if (children && Array.isArray(children) && children.length > 0)
                 this.setInvisible(children);
@@ -994,8 +921,13 @@ class Table extends EventEmitter {
     }
     setVisible(childs) {
         for (let child of childs) {
-            let child_id = parseInt(child.id.toString().split("__")[1]);
-            this.gantt.options.data.filter((d) => d.id == child_id)[0].visible = true;
+            let child_id = child.id;
+            let ganttGrid = this.gantt.gridDiv.querySelector(`div[data-task="${child_id}"]`).parentElement.parentElement;
+            this.gantt.gridDiv.querySelector(`div[data-task="${child_id}"]`);
+            // this.gantt.options.data.filter((d) => d.id == child_id)[0].visible = true;
+            child.style.display = "table-row";
+            ganttGrid.style.display = "grid";
+            // taskDuration.parentElement.style.display = "table-row";
             let children = this.findChildren(child);
             if (children && Array.isArray(children) && children.length > 0)
                 this.setVisible(children);
@@ -1065,166 +997,80 @@ class Table extends EventEmitter {
 }
 
 class TimeLine {
-    constructor(ctx, svg, options, gantt) {
+    constructor(container, options, gantt) {
         this.options = options;
-        this.svg = svg;
-        this.ctx = ctx;
+        this.container = container;
         this.gantt = gantt;
         this.minDate = this.gantt.minDate;
         this.maxDate = this.gantt.maxDate;
         this.maxValue = this.gantt.maxValue;
         this.minValue = this.gantt.minValue;
+        this.grid = document.createElement("div");
+        this.yearEl = document.createElement("div");
+        this.yearEl.className = "gantt__chart__timeline_container_year_container";
+        this.container.appendChild(this.yearEl);
+        this.grid.className = "gantt__chart__timeline_container";
+        this.container.appendChild(this.grid);
     }
     draw() {
         let noOfYears = this.maxDate.getFullYear() - this.minDate.getFullYear() + 1;
-        monthDiff(this.minDate, this.maxDate);
-        let noOfDays = dayDiff(this.minDate, this.maxDate) + 1;
-        for (let i = 0; i < noOfDays; i++) {
-            let scaledX = scaleX(addDays(this.minDate, i), this.minDate, this.maxDate, this.svg.clientWidth);
-            let date = addDays(this.minDate, i);
-            let dayName = getDayOfWeek(date.getFullYear(), date.getMonth(), date.getDate() - 1);
-            // const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-            // rect.setAttribute('x', scaledX.toString())
-            // rect.setAttribute('y', ((this.options.timeLineHeight * 3) / 4).toString())
-            // rect.setAttribute('width', this.options.timeLineColumnWidth.toString())
-            // rect.setAttribute('height', "30")
-            // rect.setAttribute('fill', this.options.timeLineBackgroundColor)
-            //day grids and name
-            drawBar(this.ctx, scaledX, +(this.options.timeLineHeight * 3) / 4, this.options.timeLineColumnWidth, 30, this.options.timeLineBackgroundColor, date.getDate().toString());
-            drawBar(this.ctx, scaledX, +(this.options.timeLineHeight * 2) / 4, this.options.timeLineColumnWidth, 30, this.options.timeLineBackgroundColor, dayName);
-            //   this.ctx.fillText(dayName, scaledX + , 85);
-            // line seperator between days
-            // const daySep = document.createElementNS('http://www.w3.org/2000/svg', 'line')
-            // daySep.setAttribute('x1', scaledX.toString())
-            // daySep.setAttribute('y1', "0")
-            // daySep.setAttribute('x2', scaledX.toString())
-            // daySep.setAttribute('y2', this.options.timeLineHeight.toString())
-            // daySep.setAttribute('stroke', 'lightgray')
-            // this.svg.appendChild(daySep)
-            drawLine(this.ctx, scaledX, +(this.options.timeLineHeight * 2) / 4, scaledX, this.gantt.timelineCanvas.height, "lightgray");
-            // day gridline in the main chart
-            const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            gridLine.setAttribute('x1', scaledX.toString());
-            gridLine.setAttribute('y1', "0");
-            gridLine.setAttribute('x2', scaledX.toString());
-            gridLine.setAttribute('y2', this.gantt.svg.clientHeight.toString());
-            gridLine.setAttribute('stroke', 'lightgray');
-            this.svg.appendChild(gridLine);
-            // drawLine(
-            //   this.gantt.ctx,
-            //   scaledX,
-            //   0,
-            //   scaledX,
-            //   this.canvas.height,
-            //   "lightgray"
-            // );
+        let noOfMonths = monthDiff(this.minDate, this.maxDate);
+        dayDiff(this.minDate, this.maxDate) + 1;
+        let month = new Date(this.minDate.getFullYear(), this.minDate.getMonth(), 1);
+        // let month = new Date(this.minDate);
+        this.yearEl.style.gridTemplateColumns = `repeat(${noOfYears}, 1fr)`;
+        this.grid.style.gridTemplateColumns = `repeat(${noOfMonths}, 1fr)`;
+        this.createYear(month, noOfYears);
+        month = new Date(this.minDate.getFullYear(), this.minDate.getMonth(), 1);
+        this.createMonth(month, noOfMonths);
+        month = new Date(this.minDate.getFullYear(), this.minDate.getMonth(), 1);
+        for (let m = 0; m < noOfMonths; m++) {
+            let monthEl = document.createElement("div");
+            monthEl.className = "gantt__chart__timeline_container_month";
+            this.grid.append(monthEl);
+            let numDays = getDaysInMonth(month.getFullYear(), month.getMonth() + 1);
+            for (let i = 0; i < numDays; i++) {
+                let day = document.createElement("span");
+                let dayoftheMonth;
+                dayoftheMonth = addDays(month, i);
+                let dayVal = dayoftheMonth.getDate();
+                day.className = "gantt__chart__timeline_container_day";
+                day.innerHTML = dayVal.toString();
+                monthEl.append(day);
+            }
+            month.setMonth(month.getMonth() + 1);
         }
-        // const grid2 = document.createElementNS('http://www.w3.org/2000/svg', 'line')
-        // grid2.setAttribute('x1', "0")
-        // grid2.setAttribute('y1', "0")
-        // grid2.setAttribute('x2', (this.svg.clientWidth + this.options.timeLineColumnWidth).toString())
-        // grid2.setAttribute('y2',((this.options.timeLineHeight * 2) / 4).toString())
-        // grid2.setAttribute('stroke', 'black')
-        // this.svg.appendChild(grid2)
-        drawLine(this.ctx, 0, (this.options.timeLineHeight * 2) / 4, this.gantt.timelineCanvas.width + this.options.timeLineColumnWidth, (this.options.timeLineHeight * 2) / 4, "black");
-        let offset = (this.options.timeLineHeight * 3) / 4;
-        // const grid3 = document.createElementNS('http://www.w3.org/2000/svg', 'line')
-        // grid3.setAttribute('x1', "0")
-        // grid3.setAttribute('y1', offset.toString())
-        // grid3.setAttribute('x2', (this.svg.clientWidth + this.options.timeLineColumnWidth).toString())
-        // grid3.setAttribute('y2', offset.toString())
-        // grid3.setAttribute('stroke', 'black')
-        // this.svg.appendChild(grid3)
-        drawLine(this.ctx, 0, +offset, this.gantt.timelineCanvas.width + this.options.timeLineColumnWidth, +offset, "black");
-        let date = this.minDate;
-        // draw month timeline
-        let maxDate = new Date(this.maxDate.getFullYear(), this.maxDate.getMonth() + 1, 1);
-        while (date <= maxDate) {
-            let mnth = date.getMonth();
-            let year = date.getFullYear();
-            let day = date.getDate();
-            let monthName = months[mnth];
-            let minScale;
-            if (this.minDate < date) {
-                minScale = scaleX(new Date(year, mnth, 0), this.minDate, this.maxDate, this.svg.clientWidth);
-            }
-            else {
-                minScale = 0;
-            }
-            let maxScale;
-            if (this.gantt.maxDate > new Date(year, mnth + 1, 1)) {
-                maxScale = scaleX(new Date(year, mnth + 1, 1), this.minDate, this.maxDate, this.svg.clientWidth);
-            }
-            else {
-                maxScale = scaleX(addDays(this.maxDate, 1), this.minDate, this.maxDate, this.svg.clientWidth);
-            }
-            // const mnth2 = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-            // mnth2.setAttribute('x', scaledX.toString())
-            // mnth2.setAttribute('y', (this.options.timeLineHeight / 4).toString())
-            // mnth2.setAttribute('width', (maxScale + this.options.timeLineColumnWidth - minScale).toString())
-            // mnth2.setAttribute('height', "30")
-            // mnth2.setAttribute('fill', this.options.timeLineBackgroundColor)
-            // this.svg.appendChild(mnth2)
-            //todo: add month name monthName
-            drawBar(this.ctx, minScale === 0 ? 0 : minScale + this.options.timeLineColumnWidth, this.options.timeLineHeight / 4, minScale === 0
-                ? maxScale
-                : maxScale + this.options.timeLineColumnWidth - minScale, 30, this.options.timeLineBackgroundColor, monthName);
-            mnth += 1;
-            date = new Date(year, mnth, day);
-            // month seperator
-            document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            // mnthSep.setAttribute('x1', scaledX.toString())
-            // mnthSep.setAttribute('y1', (this.options.timeLineHeight / 4).toString())
-            // mnthSep.setAttribute('x2', (minScale + this.options.timeLineColumnWidth).toString())
-            // mnthSep.setAttribute('y2', (this.options.timeLineHeight / 4).toString())
-            // mnthSep.setAttribute('stroke', 'black')
-            // this.svg.appendChild(mnthSep)
-            drawLine(this.ctx, minScale === 0 ? 0 : minScale + this.options.timeLineColumnWidth, this.options.timeLineHeight / 4, minScale === 0 ? 0 : minScale + this.options.timeLineColumnWidth, this.gantt.timelineCanvas.height + this.options.timeLineHeight, "black");
-            // month gridline in the timeline chart
-            drawLine(this.ctx, maxScale, this.options.timeLineHeight / 4, maxScale, this.gantt.timelineCanvas.height + this.options.timeLineHeight, "black");
-            // draw month vertical line in the main chart
-            const mnthLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            mnthLine.setAttribute('x1', maxScale.toString());
-            mnthLine.setAttribute('y1', "0");
-            mnthLine.setAttribute('x2', maxScale.toString());
-            mnthLine.setAttribute('y2', (this.svg.clientHeight).toString());
-            mnthLine.setAttribute('stroke', 'black');
-            this.svg.appendChild(mnthLine);
-            // drawLine(
-            //   this.gantt.ctx,
-            //   maxScale,
-            //   0,
-            //   maxScale,
-            //   this.canvas.height + this.options.timeLineHeight,
-            //   "black"
-            // );
+    }
+    createYear(month, noOfYears) {
+        for (let y = 0; y < noOfYears; y++) {
+            let yearEl = document.createElement("div");
+            yearEl.className = "gantt__chart__timeline_container_year";
+            let yearSpan = document.createElement("span");
+            yearSpan.style.height = "100%";
+            yearSpan.style.width = "100%";
+            yearSpan.style.display = "flex";
+            yearSpan.style.justifyContent = "center";
+            yearSpan.style.alignItems = "center";
+            yearSpan.innerHTML = month.getFullYear().toString();
+            yearEl.append(yearSpan);
+            this.yearEl.append(yearEl);
+            month.setFullYear(month.getFullYear() + 1);
         }
-        //topline above month names
-        drawLine(this.ctx, 0, 0, this.gantt.timelineCanvas.width + this.options.timeLineColumnWidth, 0, "black");
-        for (let i = 0; i < noOfYears; i++) {
-            let fDayOfYear = new Date(this.minDate.getFullYear() + i, 0, 1);
-            let lDayOfYear = new Date(this.minDate.getFullYear() + i, 11, 31);
-            if (fDayOfYear < this.minDate) {
-                fDayOfYear = this.minDate;
-            }
-            if (lDayOfYear > this.maxDate) {
-                lDayOfYear = this.maxDate;
-            }
-            let minScale = scaleX(fDayOfYear, this.minDate, this.maxDate, this.svg.clientWidth);
-            let maxScale = scaleX(lDayOfYear, this.minDate, this.maxDate, this.svg.clientWidth);
-            drawBar(this.ctx, minScale, 0, maxScale - minScale + this.options.timeLineColumnWidth, 30, this.options.timeLineBackgroundColor, fDayOfYear.getFullYear().toString());
-            //line under the year
-            drawLine(this.ctx, minScale, +this.options.timeLineHeight / 4, maxScale + +this.options.timeLineColumnWidth, +this.options.timeLineHeight / 4, "black");
-            // line to the left of the year
-            // drawLine(this.ctx, minScale, 0, minScale, this.canvas.height, "black");
-            // drawLine(
-            //   this.ctx,
-            //   maxScale + +this.options.timeLineColumnWidth,
-            //   0,
-            //   maxScale + +this.options.timeLineColumnWidth,
-            //   this.canvas.height,
-            //   "black"
-            // );
+    }
+    createMonth(month, noOfMonths) {
+        for (let m = 0; m < noOfMonths; m++) {
+            let monthEl = document.createElement("div");
+            monthEl.className = "gantt__chart__timeline_container_month";
+            let monthSpan = document.createElement("span");
+            monthSpan.style.height = "100%";
+            monthSpan.style.width = "100%";
+            monthSpan.style.display = "flex";
+            monthSpan.style.justifyContent = "center";
+            monthSpan.style.alignItems = "center";
+            monthSpan.innerHTML = months[month.getMonth()];
+            monthEl.append(monthSpan);
+            this.grid.append(monthEl);
+            month.setMonth(month.getMonth() + 1);
         }
     }
     update(date) { }
@@ -1263,7 +1109,6 @@ class GanttChart extends EventEmitter {
             document.removeEventListener("mousemove", this.splitterMouseMoveHandler);
             document.removeEventListener("mouseup", this.splitterMouseUpHandler);
         };
-        this.initStyle();
         this.options = options;
         this.rows = [];
         this.cells = [];
@@ -1274,15 +1119,16 @@ class GanttChart extends EventEmitter {
         this.svgns = "http://www.w3.org/2000/svg";
         this.svg = document.createElementNS(this.svgns, "svg");
         this.chartDiv = document.createElement("div");
-        this.init();
-        this.colors = options.colors;
-        this.titleOptions = options.titleOptions;
         let maxmin = minmax(this.options.data);
         this.maxValue = maxmin[1].getTime();
         this.minValue = maxmin[0].getTime();
         this.minDate = addDays(maxmin[0], -7);
         this.maxDate = addDays(maxmin[1], 31);
-        let duration = dayDiff(this.minDate, this.maxDate);
+        this.duration = dayDiff(new Date(this.minDate.getFullYear(), this.minDate.getMonth(), 1), new Date(this.maxDate.getFullYear(), this.maxDate.getMonth(), getDaysInMonth(this.maxDate.getFullYear(), this.maxDate.getMonth())));
+        this.initStyle();
+        this.init();
+        this.colors = options.colors;
+        this.titleOptions = options.titleOptions;
         if (this.options.timeLineHeight) {
             this.timeLineHeight = this.options.timeLineHeight;
         }
@@ -1290,10 +1136,9 @@ class GanttChart extends EventEmitter {
             this.timeLineHeight = 120;
             this.options.timeLineHeight = this.timeLineHeight;
         }
-        this.svg.setAttribute("width", (this.options.timeLineColumnWidth * duration).toString());
-        this.timelineCanvas.width = this.svg.clientWidth;
+        this.svg.setAttribute("width", (this.options.timeLineColumnWidth * this.duration).toString());
         this.dateLine = new DateLine(this.svg, this.options, this.minDate, this);
-        this.timeLine = new TimeLine(this.ctx, this.canvas, this.options, this);
+        // this.timeLine = new TimeLine(this.ctx, this.canvas, this.options, this);
         this.tasks = [];
         this.initEvents();
     }
@@ -1308,118 +1153,216 @@ class GanttChart extends EventEmitter {
          #gantt_canvas__chart__table::-webkit-scrollbar-track{box-shadow:inset 0 0 5px grey; border-radius:10px;}
          #gantt_canvas__chart__table::-webkit-scrollbar-thumb{background:lightgray; border-radius:10px}
          #gantt_canvas__chart__table::-webkit-scrollbar-thumb:hover{background:gray;}
-         
-.resizer {
-    /* Displayed at the right side of column */
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 10px;
-    cursor: col-resize;
-    user-select: none;
-}
+         #gantt__canvas__chart__timeline{
+          overflow:hidden;
+          z-index: 999;
+         }
+         .gantt__chart__timeline_container_year_container
+          {
+            display:grid;
+          }
+        .gantt__chart__timeline_container_year{
+          display:grid;
+          background-color: ${this.options.timeLineBackgroundColor};
+          grid-auto-flow: column;
+          grid-auto-columns: minmax(${this.options.timeLineColumnWidth}px, 1fr);
+          height: ${this.options.timeLineHeight / 3}px;
+          border: 1px solid black;
+        }
+        .gantt__chart__timeline_container_month{
+          display:grid;
+          background-color: ${this.options.timeLineBackgroundColor};
+          grid-auto-flow: column;
+          grid-auto-columns: minmax(${this.options.timeLineColumnWidth}px, 1fr);
+          height: ${this.options.timeLineHeight / 3}px;
+          border: 1px solid black;
+        }
 
-.resizer:hover,
-.resizing {
-    border-right: 2px solid blue;
-}
+         .gantt__chart__timeline_container {
+            display: grid;
+            overflow-x: auto;
+          }
 
-table td {
-  border: 1px solid #eee;
-}
+        .gantt__chart__timeline_container_day{
+          display:flex;
+          width:100%;
+          height:100%;
+          border: 1px solid black;
+          grid-auto-flow: column;
+          grid-template-columns: minmax(${this.options.timeLineColumnWidth}px, 1fr);
+          justify-content:center;
+          align-items:center;
+        }
 
-tr td:first-child {
-  display:flex;
-}
+        .gantt-time-period {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(${this.options.timeLineColumnWidth}px, 1fr);
+        text-align: center;
+        height: ${this.options.rowHeight}px;
+        }
 
-.level0.branch{
-  background: blue;
-  color:yellow;
-  font-weight: bold;
-  font-size: 14px;
-}
-.level1.branch{
-  background: green;
-  color: black;
-  font-size: 14px;
-}
-.level2.branch{
-  background: yellow;
-  color: blue;
-  font-size: 12px;
-}
-.level3.branch{
-  background: blue;
-  color: white;
-  font-size: 12px;
-}
-.level4.branch{
-  background: red;
-  color: white;
-  font-size: 11px;
-}
+        .gantt-time-period span {
+          margin: auto;
+        }
 
+        .gantt-time-period-cell-container {
+          grid-column: 1/-1;
+          display: grid;
+        }
 
-.table-collapse .toggle {
-  width: 0;
-  height: 0;
-  border-left: 0.25rem solid transparent;
-  border-right: 0.25rem solid transparent;
-  border-top: 0.5rem solid var(--dark-blue);
-  content: "\\229F";
+        .gantt-time-period-cell {
+          position: relative;
+          outline: 0.5px solid "lightgray";
+        }
 
-  }
-  .disable-select {
-    user-select: none; /* supported by Chrome and Opera */
-   -webkit-user-select: none; /* Safari */
-   -khtml-user-select: none; /* Konqueror HTML */
-   -moz-user-select: none; /* Firefox */
-   -ms-user-select: none; /* Internet Explorer/Edge */
-}
+        .taskDuration{
+          position: absolute;
+          height: ${this.options.rowHeight / 2}px;
+          margin-top: ${this.options.rowHeight / 4}px;
+          z-index: 1;
+          background: ${this.options.barColor};
+          border-radius: 5px;
+          box-shadow: 3px 3px 3px rgba(0, 0, 0, 0.05);
+          cursor: move;
+
+        }
+
+        .taskDuration:focus {
+          outline: 1px solid black;
+        }
+
+        .taskDuration:hover {
+          background: ${this.options.barColorHover};
+        }
 
 
-.table-expand .toggle {
-  width: 0;
-  height: 0;
-  border-top: 0.25rem solid transparent;
-  border-left: 0.5rem solid var(--dark-blue);
-  border-bottom: 0.25rem solid transparent;
-}
+        .resizer {
+            /* Displayed at the right side of column */
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 10px;
+            cursor: col-resize;
+            user-select: none;
+        }
 
-.toggle {
-  height: 9px;
-  width: 9px;
-  display: inline-block;
-  margin: 0.2rem;
-  margin-right:1rem;
+        .resizer:hover,
+        .resizing {
+            border-right: 2px solid blue;
+        }
 
-}
+        table td {
+          border: 1px solid #eee;
+        }
 
-.toggle:before{
-  content: "\\229F";
-  color:"black";
-  display:inline-block;
-  margin-right:1rem;
-}
-.expanded {
-  height: 9px;
-  width: 9px;
-  display: inline-block;
-  margin: 0.2rem;
-  margin-right:1rem;
-}
+        tr td:first-child {
+          display:flex;
+        }
 
-.expanded:before{
-  content:"\\229E";
-  color:"black";
-  display:inline-block;
-  margin: 0.2rem;
-  margin-right:1rem;
-}
+        .level0.branch{
+          background: blue;
+          color:yellow;
+          font-weight: bold;
+          font-size: 14px;
+        }
+        .level1.branch{
+          background: green;
+          color: black;
+          font-size: 14px;
+        }
+        .level2.branch{
+          background: yellow;
+          color: blue;
+          font-size: 12px;
+        }
+        .level3.branch{
+          background: blue;
+          color: white;
+          font-size: 12px;
+        }
+        .level4.branch{
+          background: red;
+          color: white;
+          font-size: 11px;
+        }
 
-tr:hover {
-  background-color: #d6eeee;
-}
+        .level5.branch{
+          background: lightblue;
+          color: black;
+          font-size: 11px;
+        }
+        .level6.branch{
+          background: lightgreen;
+          color: black;
+          font-size: 11px;
+        }
+        .level7.branch{
+          background: lightyellow;
+          color: black;
+          font-size: 11px;
+        }
+
+        .table-collapse .toggle {
+          width: 0;
+          height: 0;
+          border-left: 0.25rem solid transparent;
+          border-right: 0.25rem solid transparent;
+          border-top: 0.5rem solid var(--dark-blue);
+          content: "\\229F";
+
+          }
+          .disable-select {
+            user-select: none; /* supported by Chrome and Opera */
+          -webkit-user-select: none; /* Safari */
+          -khtml-user-select: none; /* Konqueror HTML */
+          -moz-user-select: none; /* Firefox */
+          -ms-user-select: none; /* Internet Explorer/Edge */
+        }
+
+
+        .table-expand .toggle {
+          width: 0;
+          height: 0;
+          border-top: 0.25rem solid transparent;
+          border-left: 0.5rem solid var(--dark-blue);
+          border-bottom: 0.25rem solid transparent;
+        }
+
+        .toggle {
+          height: 9px;
+          width: 9px;
+          display: inline-block;
+          margin: 0.2rem;
+          margin-right:1rem;
+
+        }
+
+        .toggle:before{
+          content: "\\229F";
+          color:"black";
+          display:inline-block;
+          margin-right:1rem;
+        }
+        .expanded {
+          height: 9px;
+          width: 9px;
+          display: inline-block;
+          margin: 0.2rem;
+          margin-right:1rem;
+        }
+
+        .expanded:before{
+          content:"\\229E";
+          color:"black";
+          display:inline-block;
+          margin: 0.2rem;
+          margin-right:1rem;
+        }
+
+        tr:hover {
+          background-color: #d6eeee;
+        }
         `));
         document.getElementsByTagName("head")[0].append(styleEl);
     }
@@ -1437,6 +1380,7 @@ tr:hover {
         this.internalTableDiv.style.maxHeight = "100%";
         this.internalTableDiv.id = "gantt_canvas__chart__table__internal";
         this.tablediv.appendChild(this.internalTableDiv);
+        let dur = dayDiff(new Date(this.minDate.getFullYear(), this.minDate.getMonth(), 1), new Date(this.maxDate.getFullYear(), this.maxDate.getMonth(), getDaysInMonth(this.maxDate.getFullYear(), this.maxDate.getMonth())));
         this.splitter.classList.add("splitter");
         this.splitter.style.width = "10px";
         this.splitter.style.height = "100%";
@@ -1445,22 +1389,26 @@ tr:hover {
         this.splitter.style.position = "relative";
         this.splitter.style.top = "0px";
         this.splitter.style.zIndex = "100";
-        this.splitter.style.backgroundColor = "transparent";
+        this.splitter.style.backgroundColor = "darkgray";
         this.timelineDiv = document.createElement("div");
         this.timelineDiv.id = "gantt__canvas__chart__timeline";
         this.timelineDiv.style.height = this.options.timeLineHeight + "px";
-        this.timelineDiv.style.width = this.chartDiv.style.width;
+        this.timelineDiv.style.width =
+            (this.options.timeLineColumnWidth * dur).toString() + "px";
         this.timelineDiv.style.position = "sticky";
         this.timelineDiv.style.top = "0";
-        this.timelineCanvas = document.createElement("canvas");
-        this.timelineCanvas.height = this.options.timeLineHeight;
-        this.timelineDiv.appendChild(this.timelineCanvas);
-        this.timelineCtx = this.timelineCanvas.getContext("2d");
+        this.gridDiv = document.createElement("div");
+        this.gridDiv.id = "gantt__canvas__chart__grid";
+        // this.gridDiv.style.height =
+        //   (this.options.rowHeight * this.options.data.length).toString() + "px";
+        this.gridDiv.style.width =
+            (this.options.timeLineColumnWidth * this.duration).toString() + "px";
         this.barsDiv = document.createElement("div");
         this.barsDiv.id = "gantt__canvas__chart__bars";
-        this.barsDiv.appendChild(this.svg);
+        // this.barsDiv.appendChild(this.svg);
         this.chartDiv.setAttribute("id", "gantt_canvas__chart__");
         this.chartDiv.appendChild(this.timelineDiv);
+        this.chartDiv.appendChild(this.gridDiv);
         // this.chartDiv.style.flex = "1 1 auto";
         this.chartDiv.appendChild(this.barsDiv);
         this.chartDiv.style.display = "inline-block";
@@ -1506,25 +1454,13 @@ tr:hover {
             this.tablediv.scrollTop = event.target.scrollTop;
         });
     }
-    drawGridLines() {
-        var canvasActualWidth = this.svg.clientWidth;
-        var gridValue = 0;
-        drawLine(this.ctx, 0, 0, canvasActualWidth, 0, "black");
-        // horizontal grids between tasks
-        let rowHeight = this.options.rowHeight;
-        for (let i in this.visibleTasks) {
-            drawLine(this.ctx, 0, rowHeight * (parseInt(i) + 1), canvasActualWidth + this.options.timeLineColumnWidth, rowHeight * (parseInt(i) + 1), "lightgray");
-            drawLine(this.tableCtx, 0, rowHeight * (parseInt(i) + 1), this.options.table.width, rowHeight * (parseInt(i) + 1), "black");
-        }
-        gridValue += this.options.gridScale;
-        // }
-    }
+    drawGridLines() { }
     drawDateLine() {
         this.dateLine = new DateLine(this.svg, this.options, this.dataDate, this);
         this.dateLine.draw();
     }
     drawTimeLine() {
-        this.timeLine = new TimeLine(this.timelineCtx, this.svg, this.options, this);
+        this.timeLine = new TimeLine(this.timelineDiv, this.options, this);
         this.timeLine.draw();
     }
     drawTable(update = false) {
@@ -1534,7 +1470,7 @@ tr:hover {
         this.table.draw(update);
     }
     draw() {
-        // this.drawGridLines();
+        this.drawGridLines();
         this.drawTable();
         this.drawTimeLine();
         this.drawDateLine();
@@ -1558,7 +1494,6 @@ tr:hover {
         this.chartDiv.style.margin = "0px";
         let duration = dayDiff(this.minDate, this.maxDate) + 1;
         this.svg.setAttribute("width", (this.options.timeLineColumnWidth * duration).toString());
-        this.timelineCanvas.width = this.options.timeLineColumnWidth * duration;
         // this.ctx.clearRect(0, 0, this.svg.clientWidth, this.svg.clientHeight);
         this.svg.innerHTML = "";
         this.tasks = [];
@@ -1567,38 +1502,46 @@ tr:hover {
         this.draw();
     }
     updateGantt() {
-        const current_scroll = this.tablediv.scrollTop;
-        this.svg.innerHTML = "";
-        const contWidth = this.container.clientWidth -
-            this.tablediv.clientWidth -
-            this.splitter.clientWidth -
-            50;
-        this.chartDiv.style.overflow = "auto";
-        this.chartDiv.style.width = `${contWidth}px`;
-        this.chartDiv.style.margin = "0px";
-        this.visibleTasks = [];
-        for (let task of this.options.data) {
-            if (task.visible !== false) {
-                this.visibleTasks.push(task);
-            }
-        }
-        this.svg.setAttribute("height", (this.options.rowHeight * this.visibleTasks.length).toString());
-        let maxmin = minmax(this.visibleTasks);
-        this.maxValue = maxmin[1].getTime();
-        this.minValue = maxmin[0].getTime();
-        this.minDate = addDays(maxmin[0], -7);
-        this.maxDate = addDays(maxmin[1], 31);
-        this.tasks = [];
-        this.dateLine = null;
-        this.svg.setAttribute("width", ((dayDiff(this.minDate, this.maxDate) + 1) *
-            this.options.timeLineColumnWidth).toString());
-        this.timelineCanvas.width = this.svg.clientWidth;
-        // this.drawGridLines();
-        this.drawDateLine();
-        this.drawTimeLine();
-        this.tasksData = new Tasks(this.options.data, this);
-        this.tablediv.scrollTop = current_scroll;
-        this.chartDiv.scrollTop = current_scroll;
+        //   const current_scroll = this.tablediv.scrollTop;
+        //   this.svg.innerHTML = "";
+        //   const contWidth =
+        //     this.container.clientWidth -
+        //     this.tablediv.clientWidth -
+        //     this.splitter.clientWidth -
+        //     50;
+        //   this.chartDiv.style.overflow = "auto";
+        //   this.chartDiv.style.width = `${contWidth}px`;
+        //   this.chartDiv.style.margin = "0px";
+        //   this.visibleTasks = [];
+        //   for (let task of this.options.data) {
+        //     if (task.visible !== false) {
+        //       this.visibleTasks.push(task);
+        //     }
+        //   }
+        //   this.svg.setAttribute(
+        //     "height",
+        //     (this.options.rowHeight * this.visibleTasks.length).toString()
+        //   );
+        //   let maxmin = minmax(this.visibleTasks);
+        //   this.maxValue = maxmin[1].getTime();
+        //   this.minValue = maxmin[0].getTime();
+        //   this.minDate = addDays(maxmin[0], -7);
+        //   this.maxDate = addDays(maxmin[1], 31);
+        //   this.tasks = [];
+        //   this.dateLine = null;
+        //   this.svg.setAttribute(
+        //     "width",
+        //     (
+        //       (dayDiff(this.minDate, this.maxDate) + 1) *
+        //       this.options.timeLineColumnWidth
+        //     ).toString()
+        //   );
+        //   // this.drawGridLines();
+        //   this.drawDateLine();
+        //   this.drawTimeLine();
+        //   this.tasksData = new Tasks(this.options.data, this);
+        //   this.tablediv.scrollTop = current_scroll;
+        //   this.chartDiv.scrollTop = current_scroll;
     }
 }
 
@@ -1654,7 +1597,13 @@ class XERParser {
                 start: activity.early_start_date
                     ? new Date(activity.early_start_date)
                     : new Date(activity.act_start_date),
+                start_date: activity.early_start_date
+                    ? new Date(activity.early_start_date)
+                    : new Date(activity.act_start_date),
                 end: activity.early_end_date
+                    ? new Date(activity.early_end_date)
+                    : new Date(activity.act_end_date),
+                end_date: activity.early_end_date
                     ? new Date(activity.early_end_date)
                     : new Date(activity.act_end_date),
                 parent: parseInt(activity.wbs_id),
@@ -1663,82 +1612,79 @@ class XERParser {
         }
         return this.activities;
     }
-    getWBS() {
-        const toReturn = [];
-        let wbss = this.byType["PROJWBS"];
-        console.log(wbss[0]);
-        wbss[0].parent_wbs_id = null;
-        for (const wbs of wbss) {
-            let activities = this.activities.filter((activity) => {
-                return activity.parent === parseInt(wbs.wbs_id);
-            });
-            if (activities.length > 0) {
-                let minStart;
-                let maxEnd;
-                for (let act of activities) {
-                    if (minStart === undefined || act.start < minStart) {
-                        minStart = new Date(act.start);
-                    }
-                    if (maxEnd === undefined || act.end > maxEnd) {
-                        maxEnd = new Date(act.end);
-                    }
-                }
-                wbs.start = minStart;
-                wbs.end = maxEnd;
-                let wbsObj = {
-                    id: parseInt(wbs.wbs_id),
-                    name: wbs.wbs_name,
-                    start: minStart,
-                    end: maxEnd,
-                    parent: wbs.parent_wbs_id ? parseInt(wbs.parent_wbs_id) : null,
-                };
-                toReturn.push(wbsObj);
+    calculateDates(data) {
+        const startDates = {};
+        const finishDates = {};
+        function dfs(nodeId) {
+            const node = data.find((n) => n.id === nodeId);
+            if (!node) {
+                return null;
             }
-            else {
-                const parenOf = this.byType["PROJWBS"].filter((wbs2) => {
-                    return wbs2.parent_wbs_id === wbs.wbs_id;
-                });
-                if (parenOf.length > 0) {
-                    let wbsObj = {
-                        id: parseInt(wbs.wbs_id),
-                        name: wbs.wbs_name,
-                        start: null,
-                        end: null,
-                        parent: wbs.parent_wbs_id ? parseInt(wbs.parent_wbs_id) : null,
-                    };
-                    toReturn.push(wbsObj);
+            const childIds = data
+                .filter((n) => n.parent === nodeId)
+                .map((n) => n.id);
+            const childStartDates = childIds.map((childId) => dfs(childId));
+            let minStartDate = Infinity;
+            let maxFinishDate = null;
+            for (let i = 0; i < childIds.length; i++) {
+                const childId = childIds[i];
+                const childStartDate = childStartDates[i];
+                if (childStartDate !== null && childStartDate < minStartDate) {
+                    minStartDate = childStartDate;
+                }
+                const childFinishDate = finishDates[childId];
+                if (childFinishDate !== null &&
+                    childFinishDate !== undefined &&
+                    (maxFinishDate === null || childFinishDate > maxFinishDate)) {
+                    maxFinishDate = childFinishDate;
                 }
             }
+            const startDate = minStartDate === Infinity ? node.start : minStartDate;
+            startDates[nodeId] = startDate;
+            const finishDate = maxFinishDate === null ? node.end : maxFinishDate;
+            finishDates[nodeId] = finishDate;
+            return startDate;
         }
-        let res = toReturn.map((d) => {
-            const getMin = (obj, prop) => {
-                const children = toReturn.filter(({ parent }) => parent === obj.id);
-                if (children.length === 0)
-                    return obj[prop];
-                return children.reduce((acc, c) => new Date(Math.min(acc, getMin(c, prop))), new Date(2100, 1, 1));
-            };
-            const getMax = (obj, prop) => {
-                const children = toReturn.filter(({ parent }) => parent === obj.id);
-                if (children.length === 0)
-                    return obj[prop];
-                return children.reduce((acc, c) => new Date(Math.max(acc, getMax(c, prop))), new Date(1970, 1, 1));
-            };
-            return {
-                ...d,
-                start: getMin(d, "start"),
-                end: getMax(d, "end"),
-            };
+        data.forEach((node) => {
+            if (!node.parent) {
+                dfs(node.id);
+            }
         });
-        // res = res.filter((d) => {
-        //   return (
-        //     d.start > new Date(1970, 1, 1) &&
-        //     d.end < new Date(2100, 1, 1) &&
-        //     d.start !== null &&
-        //     d.end !== null
-        //   );
-        // });
+        console.log("FINISH DATE", finishDates);
+        let res = [];
+        data.map((node) => {
+            res.push({
+                id: node.id,
+                name: node.name,
+                start: startDates[node.id],
+                end: finishDates[node.id],
+                parent: node.parent,
+            });
+        });
         console.log("RES", res);
         return res;
+    }
+    getWBS() {
+        this.getActivities();
+        let wbss = this.byType["PROJWBS"];
+        let tot = [];
+        wbss[0].parent_wbs_id = null;
+        for (let wbs of wbss) {
+            let obj = {
+                id: parseInt(wbs.wbs_id),
+                name: wbs.wbs_name,
+                start: null,
+                start_date: null,
+                end: null,
+                end_date: null,
+                parent: wbs.parent_wbs_id ? parseInt(wbs.parent_wbs_id) : null,
+            };
+            console.log("WBS", obj);
+            tot.push(obj);
+        }
+        tot = [...tot, ...this.activities];
+        const result = this.calculateDates(tot);
+        return result;
     }
     getActivityResource(id) {
         const s_id = id.toString();
@@ -1813,35 +1759,22 @@ const fileInput = document.getElementById("file");
 
 fileInput.addEventListener("change", (event) => {
   const file = event.target.files[0];
-  URL.createObjectURL(file);
-  const pareStart = Date.now();
   const parser = new XERParser(file);
-  const parseEnd = Date.now();
-  console.log("parse time: ", parseEnd - pareStart);
-  // const activities = [];
   setTimeout(async () => {
-    const getActStart = Date.now();
-    const activities = parser.getActivities();
-    const getActEnd = Date.now();
-    console.log("get activities time: ", getActEnd - getActStart);
-    const getWbsStart = Date.now();
-    const wbss = parser.getWBS();
-    const getWbsEnd = Date.now();
-    console.log("get wbss time: ", getWbsEnd - getWbsStart);
-    const scheduleData = wbss.concat(activities);
+    const scheduleData = parser.getWBS();
     console.log("schedule Data", scheduleData);
     let container = document.getElementById("ganttChart");
     container.innerHTML = "";
     let options = {
       container: container,
       showBaseline: false,
-      dataDate: new Date(2022, 0, 15),
+      dataDate: new Date(2021, 5, 15),
       gridScale: 5,
       gridColor: "black",
       data: scheduleData,
       titleOptions: "Music",
       rowHeight: 30,
-      timeLineColumnWidth: 20,
+      timeLineColumnWidth: 30,
       timeLineBackgroundColor: "rgb(245, 245, 245)",
       timeLineHeight: 120,
       tableWidth: 400,
@@ -1852,21 +1785,15 @@ fileInput.addEventListener("change", (event) => {
       barColorHover: "red",
       colors: ["#a55ca5", "#67b6c7", "#bccd7a", "#eb9743"],
     };
-    const ganttStart = Date.now();
     let gantt = new GanttChart(options);
     gantt.draw();
-    const ganttEnd = Date.now();
-    console.log("gantt time: ", ganttEnd - ganttStart);
 
-    console.log("MINMAX", gantt.minDate, gantt.maxDate);
     gantt.on("taskClicked", (task) => {
       createCodesTable(task, parser);
       createPredecessorsTable(task, parser);
       createResourceTable(task, parser);
     });
   }, 100);
-
-  // console.log(parser.getActivities());
 
   const reader = new FileReader();
   reader.onload = (event) => {

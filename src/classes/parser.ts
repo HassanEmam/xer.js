@@ -63,7 +63,13 @@ export class XERParser {
         start: activity.early_start_date
           ? new Date(activity.early_start_date)
           : new Date(activity.act_start_date),
+        start_date: activity.early_start_date
+          ? new Date(activity.early_start_date)
+          : new Date(activity.act_start_date),
         end: activity.early_end_date
+          ? new Date(activity.early_end_date)
+          : new Date(activity.act_end_date),
+        end_date: activity.early_end_date
           ? new Date(activity.early_end_date)
           : new Date(activity.act_end_date),
         parent: parseInt(activity.wbs_id),
@@ -73,86 +79,93 @@ export class XERParser {
     return this.activities;
   }
 
-  getWBS() {
-    const toReturn: any[] = [];
-    let wbss = this.byType["PROJWBS"];
-    console.log(wbss[0]);
-    wbss[0].parent_wbs_id = null;
-    for (const wbs of wbss) {
-      let activities = this.activities.filter((activity) => {
-        return activity.parent === parseInt(wbs.wbs_id);
-      });
-      if (activities.length > 0) {
-        let minStart: Date;
-        let maxEnd: Date;
-        for (let act of activities) {
-          if (minStart === undefined || act.start < minStart) {
-            minStart = new Date(act.start);
-          }
-          if (maxEnd === undefined || act.end > maxEnd) {
-            maxEnd = new Date(act.end);
-          }
+  calculateDates(data: any) {
+    const startDates: any = {};
+    const finishDates: any = {};
+
+    function dfs(nodeId: number) {
+      const node = data.find((n: any) => n.id === nodeId);
+      if (!node) {
+        return null;
+      }
+
+      const childIds = data
+        .filter((n: any) => n.parent === nodeId)
+        .map((n: any) => n.id);
+      const childStartDates = childIds.map((childId: any) => dfs(childId));
+
+      let minStartDate = Infinity;
+      let maxFinishDate = null;
+      for (let i = 0; i < childIds.length; i++) {
+        const childId = childIds[i];
+        const childStartDate = childStartDates[i];
+        if (childStartDate !== null && childStartDate < minStartDate) {
+          minStartDate = childStartDate;
         }
-        wbs.start = minStart;
-        wbs.end = maxEnd;
-        let wbsObj = {
-          id: parseInt(wbs.wbs_id),
-          name: wbs.wbs_name,
-          start: minStart,
-          end: maxEnd,
-          parent: wbs.parent_wbs_id ? parseInt(wbs.parent_wbs_id) : null,
-        };
-        toReturn.push(wbsObj);
-      } else {
-        const parenOf = this.byType["PROJWBS"].filter((wbs2) => {
-          return wbs2.parent_wbs_id === wbs.wbs_id;
-        });
-        if (parenOf.length > 0) {
-          let wbsObj: any = {
-            id: parseInt(wbs.wbs_id),
-            name: wbs.wbs_name,
-            start: null,
-            end: null,
-            parent: wbs.parent_wbs_id ? parseInt(wbs.parent_wbs_id) : null,
-          };
-          toReturn.push(wbsObj);
+        const childFinishDate = finishDates[childId] as any;
+        if (
+          childFinishDate !== null &&
+          childFinishDate !== undefined &&
+          (maxFinishDate === null || childFinishDate > maxFinishDate)
+        ) {
+          maxFinishDate = childFinishDate;
         }
       }
-    }
-    let res = toReturn.map((d) => {
-      const getMin = (obj: any, prop: string): any => {
-        const children = toReturn.filter(({ parent }) => parent === obj.id);
-        if (children.length === 0) return obj[prop];
-        return children.reduce(
-          (acc, c) => new Date(Math.min(acc, getMin(c, prop))),
-          new Date(2100, 1, 1)
-        );
-      };
-      const getMax = (obj: any, prop: string): any => {
-        const children = toReturn.filter(({ parent }) => parent === obj.id);
-        if (children.length === 0) return obj[prop];
-        return children.reduce(
-          (acc, c) => new Date(Math.max(acc, getMax(c, prop))),
-          new Date(1970, 1, 1)
-        );
-      };
-      return {
-        ...d,
-        start: getMin(d, "start"),
-        end: getMax(d, "end"),
-      };
-    });
-    // res = res.filter((d) => {
-    //   return (
-    //     d.start > new Date(1970, 1, 1) &&
-    //     d.end < new Date(2100, 1, 1) &&
-    //     d.start !== null &&
-    //     d.end !== null
-    //   );
-    // });
-    console.log("RES", res);
 
+      const startDate = minStartDate === Infinity ? node.start : minStartDate;
+      startDates[nodeId] = startDate;
+
+      const finishDate = maxFinishDate === null ? node.end : maxFinishDate;
+      finishDates[nodeId] = finishDate;
+
+      return startDate;
+    }
+
+    data.forEach((node: any) => {
+      if (!node.parent) {
+        dfs(node.id);
+      }
+    });
+    console.log("FINISH DATE", finishDates);
+
+    let res: any[] = [];
+    data.map((node: any) => {
+      res.push({
+        id: node.id,
+        name: node.name,
+        start: startDates[node.id],
+        end: finishDates[node.id],
+        parent: node.parent,
+      });
+    });
+    console.log("RES", res);
     return res;
+  }
+
+  getWBS() {
+    const toReturn: any[] = [];
+    const acts = this.getActivities();
+    let wbss = this.byType["PROJWBS"];
+    let tot = [];
+    wbss[0].parent_wbs_id = null;
+    for (let wbs of wbss) {
+      let obj = {
+        id: parseInt(wbs.wbs_id),
+        name: wbs.wbs_name,
+        start: null as Date | null,
+        start_date: null as Date | null,
+        end: null as Date | null,
+        end_date: null as Date | null,
+        parent: wbs.parent_wbs_id ? parseInt(wbs.parent_wbs_id) : null,
+      };
+      console.log("WBS", obj);
+
+      tot.push(obj);
+    }
+
+    tot = [...tot, ...this.activities];
+    const result = this.calculateDates(tot);
+    return result;
   }
 
   getActivityResource(id: number) {

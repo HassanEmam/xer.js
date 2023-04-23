@@ -13,6 +13,31 @@
     <div>
       <input type="file" name="file" id="file" accept=".xer" />
     </div>
+
+    <div id="ganttChart"></div>
+    <div class="tab">
+      <button class="tablinks" onclick="openCity(event, 'predecessors')">
+        Predecessors
+      </button>
+      <button class="tablinks" onclick="openCity(event, 'Codes')">Codes</button>
+      <button class="tablinks" onclick="openCity(event, 'Resources')">
+        Resources
+      </button>
+    </div>
+
+    <!-- Tab content -->
+    <div id="predecessors" class="tabcontent">
+      <h3>Predecessors</h3>
+    </div>
+
+    <div id="Codes" class="tabcontent">
+      <h3>Codes</h3>
+    </div>
+
+    <div id="Resources" class="tabcontent">
+      <h3>Resources</h3>
+    </div>
+    <script src="./tabs.js"></script>
     <script src="./bundle.js" type="module"></script>
   </body>
 </html>
