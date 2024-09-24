@@ -9,8 +9,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@rollup/plugin-node-resolve": "^14.0.1",
-    "rollup": "^2.79.0"
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "rollup": "^4.22.4"
   },
   "dependencies": {
     "4d-gantt-chart": "^0.0.23",
